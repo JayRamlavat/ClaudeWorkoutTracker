@@ -10,10 +10,10 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { -webkit-tap-highlight-color: transparent; }
-    /* Fix for iOS Safari text size zooming */
     input, select, textarea { font-size: 16px !important; }
   </style>
 </head>
+  
 <body>
   <div id="root"></div>
 
@@ -22,7 +22,7 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <script type="text/babel">
-    const { useState, useCallback, useRef, useEffect } = React;
+    const { useState, useCallback, useRef, useEffect, useMemo } = React;
 
     // ---- DEFAULTS ----
     const defaultSettings = {
@@ -44,8 +44,7 @@
 
     const isFilled = (s) => (s ?? "").toString().trim().length > 0;
 
-    // ---- SMART INPUTS (AUTO-RESIZING TEXTAREAS) ----
-    
+    // ---- SMART INPUTS ----
     const ExerciseInput = React.memo(({ placeholder, initialValue, lastValue, onSave }) => {
       const [value, setValue] = useState(initialValue);
       const isEditingRef = useRef(false);
@@ -157,10 +156,31 @@
 
     // ---- MAIN APP ----
     const WorkoutTracker = () => {
+      
+      // -- SMART STARTUP LOGIC --
+      // We calculate the first INCOMPLETE day before initializing state
+      const getSmartStart = () => {
+        try {
+          const comp = JSON.parse(localStorage.getItem('jay-completed-sessions') || '{}');
+          for (let w = 1; w <= 8; w++) {
+            for (let d = 1; d <= 6; d++) {
+              if (!comp[`${w}-${d}`]) {
+                return { w, d };
+              }
+            }
+          }
+          return { w: 1, d: 1 }; // Default if everything is done
+        } catch (e) {
+          return { w: 1, d: 1 };
+        }
+      };
+
+      const startLoc = useMemo(() => getSmartStart(), []);
+
       // 1. STATE & CONFIG
       const [activeTab, setActiveTab] = useState('workout');
-      const [currentWeek, setCurrentWeek] = useState(1);
-      const [activeDay, setActiveDay] = useState(1);
+      const [currentWeek, setCurrentWeek] = useState(startLoc.w);
+      const [activeDay, setActiveDay] = useState(startLoc.d);
       const [saveStatus, setSaveStatus] = useState('');
       
       // CLOUD CONFIG
@@ -185,6 +205,13 @@
         } catch(e) { return {}; }
       });
 
+      const [completedSessions, setCompletedSessions] = useState(() => {
+        try {
+          const c = localStorage.getItem('jay-completed-sessions');
+          return c ? JSON.parse(c) : {};
+        } catch(e) { return {}; }
+      });
+
       const [bodyweightLogs, setBodyweightLogs] = useState(() => {
         try {
           const b = localStorage.getItem('jay-bodyweight-logs');
@@ -203,6 +230,7 @@
             const res = await fetch(getCloudUrl(pantryId));
             if (!res.ok) return; 
             const data = await res.json();
+            
             if (data.settings) {
               setSettings(data.settings);
               localStorage.setItem('jay-settings', JSON.stringify(data.settings));
@@ -210,6 +238,13 @@
             if (data.logs) {
               setWorkoutLogs(data.logs);
               localStorage.setItem('jay-workout-logs', JSON.stringify(data.logs));
+            }
+            if (data.completed) {
+              setCompletedSessions(data.completed);
+              localStorage.setItem('jay-completed-sessions', JSON.stringify(data.completed));
+              
+              // Optional: Update current view to smart location if cloud has newer data
+              // But we generally trust local state for navigation to avoid jumping
             }
             if (data.bw) {
               setBodyweightLogs(data.bw);
@@ -243,24 +278,53 @@
         setSettings(s);
         localStorage.setItem('jay-settings', JSON.stringify(s));
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
-        saveTimeout.current = setTimeout(() => {
-          pushToCloud('settings', s);
-        }, 1000);
+        saveTimeout.current = setTimeout(() => pushToCloud('settings', s), 1000);
       }, [pantryId]);
 
       const saveLogsDebounced = useCallback((l) => {
         setWorkoutLogs(l);
         localStorage.setItem('jay-workout-logs', JSON.stringify(l));
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
-        saveTimeout.current = setTimeout(() => {
-          pushToCloud('logs', l);
-        }, 1000);
+        saveTimeout.current = setTimeout(() => pushToCloud('logs', l), 1000);
       }, [pantryId]);
+
+      const saveCompletion = (c) => {
+        setCompletedSessions(c);
+        localStorage.setItem('jay-completed-sessions', JSON.stringify(c));
+        pushToCloud('completed', c);
+      };
 
       const saveBW = (l) => {
         setBodyweightLogs(l);
         localStorage.setItem('jay-bodyweight-logs', JSON.stringify(l));
         pushToCloud('bw', l);
+      };
+
+      const handleFinishDay = () => {
+        // 1. Mark current day complete
+        const newCompleted = { ...completedSessions, [`${currentWeek}-${activeDay}`]: true };
+        saveCompletion(newCompleted);
+
+        // 2. Logic to determine next step
+        let nextW = currentWeek;
+        let nextD = activeDay + 1;
+
+        if (nextD > 6) {
+          nextD = 1;
+          nextW = currentWeek + 1;
+        }
+
+        if (nextW > 8) {
+          // Cycle done, maybe stay here or loop? 
+          // For safety, let's stay on Week 8 Day 6 but show a message
+          alert("Cycle Complete! Great job.");
+          return; 
+        }
+
+        // 3. Move to next
+        setCurrentWeek(nextW);
+        setActiveDay(nextD);
+        window.scrollTo(0,0);
       };
 
       // 5. HELPER DATA
@@ -418,7 +482,7 @@
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => {
-                  const data = { settings, logs: workoutLogs, bw: bodyweightLogs };
+                  const data = { settings, logs: workoutLogs, bw: bodyweightLogs, completed: completedSessions };
                   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
@@ -452,6 +516,10 @@
                         if (data.logs) {
                           setWorkoutLogs(data.logs);
                           localStorage.setItem('jay-workout-logs', JSON.stringify(data.logs));
+                        }
+                        if (data.completed) {
+                          setCompletedSessions(data.completed);
+                          localStorage.setItem('jay-completed-sessions', JSON.stringify(data.completed));
                         }
                         if (data.bw) {
                           setBodyweightLogs(data.bw);
@@ -554,9 +622,13 @@
                   {[1,2,3,4,5,6,7,8].map(wk => {
                     const st = wendlerStagger[wk];
                     const chin = getChinIntensity(wk);
+                    const isWkComplete = [1,2,3,4,5,6].every(d => completedSessions[`${wk}-${d}`]);
                     return (
                       <tr key={wk} className={wk === currentWeek ? 'bg-blue-50' : ''}>
-                        <td className="px-2 py-1 font-medium text-center">{wk}</td>
+                        <td className="px-2 py-1 font-medium text-center relative">
+                          {wk}
+                          {isWkComplete && <span className="absolute top-0 right-0 text-[8px] text-green-600">✓</span>}
+                        </td>
                         {['bench','ohp','deadlift','squat'].map(l => (
                           <td key={l} className={`px-2 py-1 text-center ${st[l]===3?'bg-red-100 text-red-700 font-medium':st[l]===4?'bg-green-100 text-green-700':''}`}>
                             {weekNames[st[l]]}
@@ -631,6 +703,8 @@
           );
         };
 
+        const isCompleted = completedSessions[`${currentWeek}-${activeDay}`];
+
         return (
           <div className="p-4 space-y-4">
             <div className="bg-white rounded-lg shadow p-3">
@@ -650,16 +724,26 @@
                   <button
                     key={d}
                     onClick={() => setActiveDay(d)}
-                    className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${activeDay===d?'bg-blue-50 text-blue-600 border-b-2 border-blue-500':'text-gray-500'}`}
+                    className={`relative px-4 py-2 text-sm font-medium whitespace-nowrap ${activeDay===d?'bg-blue-50 text-blue-600 border-b-2 border-blue-500':'text-gray-500'}`}
                   >
                     D{d}
+                    {completedSessions[`${currentWeek}-${d}`] && <span className="ml-1 text-[10px] text-green-500">✓</span>}
                   </button>
                 ))}
               </div>
 
               <div className="p-4">
-                <h2 className="font-bold text-gray-800">{dayNames[activeDay]}</h2>
-                <p className="text-xs text-gray-500 mb-3">Week {currentWeek}</p>
+                <div className="flex justify-between items-center mb-3">
+                  <div>
+                    <h2 className="font-bold text-gray-800">{dayNames[activeDay]}</h2>
+                    <p className="text-xs text-gray-500">Week {currentWeek}</p>
+                  </div>
+                  {isCompleted && (
+                    <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-bold border border-green-200">
+                      COMPLETED
+                    </span>
+                  )}
+                </div>
 
                 {activeDay === 6 && (
                   <div className={`mb-3 p-2 rounded text-sm ${chin.c}`}>
@@ -682,7 +766,7 @@
                     }
 
                     return (
-                      <div key={ex.id} className="border rounded-lg p-3">
+                      <div key={ex.id} className={`border rounded-lg p-3 ${isCompleted ? 'bg-gray-50 opacity-80' : ''}`}>
                         <div className="flex justify-between">
                           <h3 className={`font-medium text-sm ${ex.w || ex.c ? 'text-blue-700' : 'text-gray-800'}`}>{ex.n}</h3>
                           <span className="text-xs text-gray-400">{ex.s}×{ex.r}</span>
@@ -717,6 +801,20 @@
                   })}
                 </div>
 
+                {/* FINISH WORKOUT BUTTON */}
+                <div className="mt-8">
+                  <button
+                    onClick={handleFinishDay}
+                    className="w-full py-4 rounded-lg bg-green-600 active:bg-green-700 text-white font-bold text-lg shadow-lg flex justify-center items-center gap-2"
+                  >
+                    <span>{isCompleted ? "Update & Next" : "Finish Workout"}</span>
+                    <span>→</span>
+                  </button>
+                  <p className="text-center text-xs text-gray-400 mt-2">
+                    Marks Day {activeDay} as done and loads Day {activeDay < 6 ? activeDay + 1 : 1}
+                  </p>
+                </div>
+
               </div>
             </div>
           </div>
@@ -736,9 +834,13 @@
                   {[1,2,3,4,5,6].map(d => {
                     const data = workoutLogs[`${wk}-${d}`];
                     if (!data || Object.keys(data).length === 0) return null;
+                    const isDone = completedSessions[`${wk}-${d}`];
                     return (
                       <div key={d} className="ml-2 mb-2">
-                        <h4 className="text-sm font-medium text-gray-600">{dayNames[d]}</h4>
+                        <h4 className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                          {dayNames[d]}
+                          {isDone && <span className="text-[10px] bg-green-100 text-green-700 px-1 rounded">DONE</span>}
+                        </h4>
                         {Object.entries(data).map(([id, v]) => {
                           const ex = dayEx[d]?.find(e => e.id === id);
                           if (!ex || !v.sets.filter(s=>s).length) return null;
