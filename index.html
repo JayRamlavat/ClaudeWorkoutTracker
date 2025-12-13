@@ -151,7 +151,7 @@
       );
     });
 
-    const WorkoutTracker = () => {
+const WorkoutTracker = () => {
       const [activeTab, setActiveTab] = useState('workout');
       const [currentWeek, setCurrentWeek] = useState(1);
       const [activeDay, setActiveDay] = useState(1);
@@ -183,41 +183,12 @@
       const [newWeight, setNewWeight] = useState('');
       const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
 
-      // ---- Fix for "focus drops after 2-3s" on iOS:
-      // Don't cause header/layout changes while an input is focused.
-      // We'll track editing count, and only show/clear "Saved ✓" when NOT editing.
-      const editingCountRef = useRef(0);
-      const pendingSavedRef = useRef(false);
-      const clearSavedTimeoutRef = useRef(null);
-
-      const onEditStart = useCallback(() => {
-        editingCountRef.current += 1;
-      }, []);
-
-      const onEditEnd = useCallback(() => {
-        editingCountRef.current = Math.max(0, editingCountRef.current - 1);
-        if (editingCountRef.current === 0 && pendingSavedRef.current) {
-          pendingSavedRef.current = false;
-          // show the saved toast now that we're not editing
-          setSaveStatus('Saved ✓');
-          if (clearSavedTimeoutRef.current) clearTimeout(clearSavedTimeoutRef.current);
-          clearSavedTimeoutRef.current = setTimeout(() => setSaveStatus(''), 2000);
-        }
-      }, []);
-
       // Debounced save
       const saveTimeout = useRef(null);
-
-      const showSaved = useCallback(() => {
-        // If user is currently focused in any input, defer the toast until editing ends.
-        if (editingCountRef.current > 0) {
-          pendingSavedRef.current = true;
-          return;
-        }
+      const showSaved = () => {
         setSaveStatus('Saved ✓');
-        if (clearSavedTimeoutRef.current) clearTimeout(clearSavedTimeoutRef.current);
-        clearSavedTimeoutRef.current = setTimeout(() => setSaveStatus(''), 2000);
-      }, []);
+        setTimeout(() => setSaveStatus(''), 2000);
+      };
 
       const saveSettingsDebounced = useCallback((s) => {
         setSettings(s);
@@ -226,7 +197,7 @@
           localStorage.setItem('jay-settings', JSON.stringify(s));
           showSaved();
         }, 500);
-      }, [showSaved]);
+      }, []);
 
       const saveLogsDebounced = useCallback((l) => {
         setWorkoutLogs(l);
@@ -235,7 +206,7 @@
           localStorage.setItem('jay-workout-logs', JSON.stringify(l));
           showSaved();
         }, 500);
-      }, [showSaved]);
+      }, []);
 
       const saveBW = (l) => {
         setBodyweightLogs(l);
@@ -357,7 +328,6 @@
 
       const getLog = (w, d, ex) => workoutLogs[`${w}-${d}`]?.[ex] || { sets: [], notes: '' };
 
-      // Last session = same day, previous week (walk backward)
       const getPrevLog = (w, d, ex) => {
         for (let wk = w - 1; wk >= 1; wk--) {
           const log = workoutLogs[`${wk}-${d}`]?.[ex];
@@ -368,8 +338,8 @@
         return { sets: [], notes: '', _week: null };
       };
 
-      // SETUP TAB
-      const SetupTab = () => (
+      // ---- CHANGED TO RENDER FUNCTIONS ----
+      const renderSetupTab = () => (
         <div className="p-4 space-y-4">
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-bold text-gray-800 mb-3">Wendler TMs (lbs)</h2>
@@ -432,8 +402,7 @@
         </div>
       );
 
-      // WENDLER TAB
-      const WendlerTab = () => (
+      const renderWendlerTab = () => (
         <div className="p-4 space-y-4">
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-bold text-gray-800 mb-3">8-Week Stagger</h2>
@@ -510,8 +479,7 @@
         </div>
       );
 
-      // WORKOUT TAB
-      const WorkoutTab = () => {
+      const renderWorkoutTab = () => {
         const exs = dayEx[activeDay];
         const st = wendlerStagger[currentWeek];
         const chin = getChinIntensity(currentWeek);
@@ -571,7 +539,6 @@
                   {exs.map(ex => {
                     const log = getLog(currentWeek, activeDay, ex.id);
                     const prev = getPrevLog(currentWeek, activeDay, ex.id);
-
                     const allFilled = Array.from({ length: ex.s }, (_, i) => isFilled(log.sets?.[i])).every(Boolean);
 
                     let tgt = '';
@@ -592,7 +559,6 @@
                         {tgt && <p className="text-xs text-blue-600 mt-1">Target: {tgt}</p>}
                         <p className="text-xs text-gray-400">{ex.nt}</p>
 
-                        {/* Always-visible "Last session" box; fades once all sets are filled */}
                         {renderLastSessionBox(prev, allFilled)}
 
                         <div className="grid grid-cols-3 gap-2 mt-2">
@@ -603,8 +569,6 @@
                               lastValue={prev.sets?.[i] || ''}
                               placeholder={prev.sets?.[i] ? `Last: ${prev.sets[i]}` : `Set ${i + 1}`}
                               onSave={(v) => logSet(currentWeek, activeDay, ex.id, i, v)}
-                              onEditStart={onEditStart}
-                              onEditEnd={onEditEnd}
                             />
                           ))}
                         </div>
@@ -615,8 +579,6 @@
                           lastValue={prev.notes || ''}
                           placeholder={prev.notes ? `Last: ${prev.notes}` : "Notes..."}
                           onSave={(v) => logNotes(currentWeek, activeDay, ex.id, v)}
-                          onEditStart={onEditStart}
-                          onEditEnd={onEditEnd}
                         />
                       </div>
                     );
@@ -629,8 +591,7 @@
         );
       };
 
-      // HISTORY TAB
-      const HistoryTab = () => (
+      const renderHistoryTab = () => (
         <div className="p-4">
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-bold text-gray-800 mb-4">Workout History</h2>
@@ -662,8 +623,7 @@
         </div>
       );
 
-      // BODYWEIGHT TAB
-      const BodyweightTab = () => (
+      const renderBodyweightTab = () => (
         <div className="p-4 space-y-4">
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-bold text-gray-800 mb-3">Log Bodyweight</h2>
@@ -712,22 +672,18 @@
         <div className="min-h-screen bg-gray-100">
           <div className="bg-blue-700 text-white p-4 flex justify-between items-center">
             <div>
-              <h1 className="text-lg font-bold">Jay's Workout Tracker</h1>
+              <h1 className="text-lg font-bold">Workout Tracker</h1>
               <p className="text-blue-200 text-xs">Staggered Wendler + Weighted Calisthenics</p>
             </div>
-
-            {/* Reserve space so layout doesn't change (helps prevent iOS focus drops) */}
-            <span className="text-green-300 text-sm min-w-[72px] text-right">
-              {saveStatus || ""}
-            </span>
+            {saveStatus && <span className="text-green-300 text-sm">{saveStatus}</span>}
           </div>
 
           <div className="pb-20">
-            {activeTab === 'setup' && <SetupTab />}
-            {activeTab === 'wendler' && <WendlerTab />}
-            {activeTab === 'workout' && <WorkoutTab />}
-            {activeTab === 'history' && <HistoryTab />}
-            {activeTab === 'bodyweight' && <BodyweightTab />}
+            {activeTab === 'setup' && renderSetupTab()}
+            {activeTab === 'wendler' && renderWendlerTab()}
+            {activeTab === 'workout' && renderWorkoutTab()}
+            {activeTab === 'history' && renderHistoryTab()}
+            {activeTab === 'bodyweight' && renderBodyweightTab()}
           </div>
 
           <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex safe-area-inset-bottom">
