@@ -20,6 +20,15 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script type="text/babel">
     const { useState, useEffect, useCallback, useRef } = React;
+    const defaultSettings = {
+  wendlerTM: { bench: 205, squat: 290, deadlift: 375, ohp: 120 },
+  calisthenics: { 
+    dips: { top: 80, backoff: 60 },
+    pullups: { top: 80, backoff: 60 },
+    chinups: { top: 90, backoff: 65 }
+  },
+  bodyweight: 155
+};
 
     const WorkoutTracker = () => {
       const [activeTab, setActiveTab] = useState('workout');
@@ -28,19 +37,14 @@
       const [saveStatus, setSaveStatus] = useState('');
       
       const [settings, setSettings] = useState(() => {
-        try {
-          const s = localStorage.getItem('jay-settings');
-          return s ? JSON.parse(s) : null;
-        } catch(e) { return null; }
-      } || {
-        wendlerTM: { bench: 205, squat: 290, deadlift: 375, ohp: 120 },
-        calisthenics: { 
-          dips: { top: 80, backoff: 60 },
-          pullups: { top: 80, backoff: 60 },
-          chinups: { top: 90, backoff: 65 }
-        },
-        bodyweight: 155
-      });
+  try {
+    const s = localStorage.getItem('jay-settings');
+    return s ? JSON.parse(s) : defaultSettings;
+  } catch (e) {
+    return defaultSettings;
+  }
+});
+
 
       const [workoutLogs, setWorkoutLogs] = useState(() => {
         try {
