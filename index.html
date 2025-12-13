@@ -51,12 +51,10 @@
       const isEditingRef = useRef(false);
       const textareaRef = useRef(null);
 
-      // Sync with parent updates
       useEffect(() => {
         if (!isEditingRef.current) setValue(initialValue);
       }, [initialValue]);
 
-      // Auto-Resize Logic
       useEffect(() => {
         if (textareaRef.current) {
           textareaRef.current.style.height = 'auto';
@@ -86,7 +84,6 @@
             className="w-full px-2 py-1.5 text-sm border rounded resize-none overflow-hidden block min-h-[34px] leading-snug"
             style={{ paddingRight: isFilled(lastValue) ? '3rem' : '0.5rem' }} 
           />
-          
           {isFilled(lastValue) && (
             <button
               type="button"
@@ -101,7 +98,6 @@
               Copy
             </button>
           )}
-
           <div className={`mt-0.5 text-[10px] font-medium text-right pr-1 ${deltaClass}`}>
             {showDelta ? (delta > 0 ? `+${delta}` : `${delta}`) : (isFilled(lastValue) ? " " : " ")}
           </div>
@@ -118,7 +114,6 @@
         if (!isEditingRef.current) setValue(initialValue);
       }, [initialValue]);
 
-      // Auto-Resize Logic
       useEffect(() => {
         if (textareaRef.current) {
           textareaRef.current.style.height = 'auto';
@@ -168,14 +163,14 @@
       const [activeDay, setActiveDay] = useState(1);
       const [saveStatus, setSaveStatus] = useState('');
       
-      // CLOUD CONFIG (Securely loaded from user input)
+      // CLOUD CONFIG
       const BASKET_NAME = "jays-workout-tracker";
       const [pantryId, setPantryId] = useState(() => {
         return localStorage.getItem('jay-pantry-id') || '';
       });
       const getCloudUrl = (id) => `https://getpantry.cloud/apiv1/pantry/${id}/basket/${BASKET_NAME}`;
 
-      // 2. DATA STATE (Load from LocalStorage first)
+      // 2. DATA STATE
       const [settings, setSettings] = useState(() => {
         try {
           const s = localStorage.getItem('jay-settings');
@@ -201,17 +196,13 @@
       const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
 
       // 3. CLOUD SYNC LOGIC
-      
-      // A. Load from Cloud on App Start or when ID changes
       useEffect(() => {
         if (!pantryId) return;
-        
         const loadCloudData = async () => {
           try {
             const res = await fetch(getCloudUrl(pantryId));
             if (!res.ok) return; 
             const data = await res.json();
-            
             if (data.settings) {
               setSettings(data.settings);
               localStorage.setItem('jay-settings', JSON.stringify(data.settings));
@@ -233,10 +224,8 @@
         loadCloudData();
       }, [pantryId]);
 
-      // B. Helper to push updates to Cloud
       const pushToCloud = (key, data) => {
         if (!pantryId) return;
-        
         fetch(getCloudUrl(pantryId), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -253,7 +242,6 @@
       const saveSettingsDebounced = useCallback((s) => {
         setSettings(s);
         localStorage.setItem('jay-settings', JSON.stringify(s));
-        
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
         saveTimeout.current = setTimeout(() => {
           pushToCloud('settings', s);
@@ -263,7 +251,6 @@
       const saveLogsDebounced = useCallback((l) => {
         setWorkoutLogs(l);
         localStorage.setItem('jay-workout-logs', JSON.stringify(l));
-        
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
         saveTimeout.current = setTimeout(() => {
           pushToCloud('logs', l);
@@ -423,6 +410,67 @@
               className="w-full px-3 py-2 border rounded-md text-sm font-mono"
             />
             {pantryId && <p className="text-xs text-green-600 mt-2 font-bold">Sync Active ✓</p>}
+          </div>
+
+          {/* MANUAL BACKUP SECTION */}
+          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-gray-500">
+            <h2 className="font-bold text-gray-800 mb-2">Data Backup</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                  const data = { settings, logs: workoutLogs, bw: bodyweightLogs };
+                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `jay-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                }}
+                className="w-full bg-green-600 text-white py-2 rounded-md text-sm font-medium active:bg-green-700"
+              >
+                Export Backup
+              </button>
+
+              <div className="relative">
+                <input
+                  type="file"
+                  accept=".json"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      try {
+                        const data = JSON.parse(event.target.result);
+                        if (data.settings) {
+                          setSettings(data.settings);
+                          localStorage.setItem('jay-settings', JSON.stringify(data.settings));
+                        }
+                        if (data.logs) {
+                          setWorkoutLogs(data.logs);
+                          localStorage.setItem('jay-workout-logs', JSON.stringify(data.logs));
+                        }
+                        if (data.bw) {
+                          setBodyweightLogs(data.bw);
+                          localStorage.setItem('jay-bodyweight-logs', JSON.stringify(data.bw));
+                        }
+                        alert('Data restored! Refreshing...');
+                        window.location.reload();
+                      } catch (err) {
+                        alert('Invalid backup file');
+                      }
+                    };
+                    reader.readAsText(file);
+                  }}
+                />
+                <button className="w-full bg-gray-600 text-white py-2 rounded-md text-sm font-medium pointer-events-none">
+                  Import Backup
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="bg-white rounded-lg shadow p-4">
