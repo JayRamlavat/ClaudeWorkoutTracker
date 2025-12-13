@@ -296,7 +296,8 @@
       };
 
       const handleFinishDay = () => {
-        const newCompleted = { ...completedSessions, [`${currentWeek}-${activeDay}`]: true };
+        const key = `${currentWeek}-${activeDay}`;
+        const newCompleted = { ...completedSessions, [key]: true };
         saveCompletion(newCompleted);
 
         let nextW = currentWeek;
@@ -317,18 +318,20 @@
         window.scrollTo(0,0);
       };
 
-      // ---- DELETE HELPERS ----
+      // ---- DELETE HELPERS (FIXED) ----
       const deleteDayEntry = (w, d) => {
         if (!confirm(`Are you sure you want to delete logs for Week ${w}, Day ${d}?`)) return;
         
+        const key = `${w}-${d}`;
+        
         // 1. Remove Logs
         const newLogs = { ...workoutLogs };
-        delete newLogs[`${w}-${d}`];
+        delete newLogs[key];
         saveLogsDebounced(newLogs);
 
         // 2. Remove Completion
         const newComp = { ...completedSessions };
-        delete newComp[`${w}-${d}`];
+        delete newComp[key];
         saveCompletion(newComp);
       };
 
@@ -339,8 +342,9 @@
         const newComp = { ...completedSessions };
 
         for (let d = 1; d <= 6; d++) {
-          delete newLogs[`${w}-${d}`];
-          delete newComp[`${w}-${d}`];
+          const key = `${w}-${d}`;
+          delete newLogs[key];
+          delete newComp[key];
         }
 
         saveLogsDebounced(newLogs);
