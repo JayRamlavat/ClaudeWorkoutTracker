@@ -15,49 +15,91 @@
 </head>
 <body>
   <div id="root"></div>
+
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
   <script type="text/babel">
-    const { useState, useEffect, useCallback, useRef } = React;
+    const { useState, useCallback, useRef, useEffect } = React;
+
+    // ---- DEFAULTS ----
     const defaultSettings = {
-  wendlerTM: { bench: 205, squat: 290, deadlift: 375, ohp: 120 },
-  calisthenics: { 
-    dips: { top: 80, backoff: 60 },
-    pullups: { top: 80, backoff: 60 },
-    chinups: { top: 90, backoff: 65 }
-  },
-  bodyweight: 155
-};
+      wendlerTM: { bench: 205, squat: 290, deadlift: 375, ohp: 120 },
+      calisthenics: {
+        dips: { top: 80, backoff: 60 },
+        pullups: { top: 80, backoff: 60 },
+        chinups: { top: 90, backoff: 65 }
+      },
+      bodyweight: 155
+    };
+
+    // ---- INPUTS (MOVED OUTSIDE COMPONENT TO PREVENT FOCUS DROPS) ----
+    const ExerciseInput = React.memo(({ placeholder, initialValue, onSave }) => {
+      const [value, setValue] = useState(initialValue);
+
+      useEffect(() => {
+        setValue(initialValue);
+      }, [initialValue]);
+
+      return (
+        <input
+          type="text"
+          placeholder={placeholder}
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onBlur={() => onSave(value)}
+          className="w-full px-2 py-1 text-sm border rounded"
+        />
+      );
+    });
+
+    const NotesInput = React.memo(({ placeholder, initialValue, onSave }) => {
+      const [value, setValue] = useState(initialValue);
+
+      useEffect(() => {
+        setValue(initialValue);
+      }, [initialValue]);
+
+      return (
+        <input
+          type="text"
+          placeholder={placeholder || "Notes..."}
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onBlur={() => onSave(value)}
+          className="w-full mt-2 px-2 py-1 text-sm border rounded"
+        />
+      );
+    });
 
     const WorkoutTracker = () => {
       const [activeTab, setActiveTab] = useState('workout');
       const [currentWeek, setCurrentWeek] = useState(1);
       const [activeDay, setActiveDay] = useState(1);
       const [saveStatus, setSaveStatus] = useState('');
-      
-      const [settings, setSettings] = useState(() => {
-  try {
-    const s = localStorage.getItem('jay-settings');
-    return s ? JSON.parse(s) : defaultSettings;
-  } catch (e) {
-    return defaultSettings;
-  }
-});
 
+      const [settings, setSettings] = useState(() => {
+        try {
+          const s = localStorage.getItem('jay-settings');
+          return s ? JSON.parse(s) : defaultSettings;
+        } catch (e) {
+          return defaultSettings;
+        }
+      });
 
       const [workoutLogs, setWorkoutLogs] = useState(() => {
         try {
           const w = localStorage.getItem('jay-workout-logs');
           return w ? JSON.parse(w) : {};
-        } catch(e) { return {}; }
+        } catch (e) { return {}; }
       });
 
       const [bodyweightLogs, setBodyweightLogs] = useState(() => {
         try {
           const b = localStorage.getItem('jay-bodyweight-logs');
           return b ? JSON.parse(b) : [];
-        } catch(e) { return []; }
+        } catch (e) { return []; }
       });
 
       const [newWeight, setNewWeight] = useState('');
@@ -208,6 +250,17 @@
 
       const getLog = (w, d, ex) => workoutLogs[`${w}-${d}`]?.[ex] || { sets: [], notes: '' };
 
+      // Previous log for same day/exercise (walk backwards from currentWeek-1)
+      const getPrevLog = (w, d, ex) => {
+        for (let wk = w - 1; wk >= 1; wk--) {
+          const log = workoutLogs[`${wk}-${d}`]?.[ex];
+          const hasSets = log?.sets?.some(s => (s ?? '').toString().trim() !== '');
+          const hasNotes = (log?.notes ?? '').toString().trim() !== '';
+          if (hasSets || hasNotes) return { ...log, _week: wk };
+        }
+        return { sets: [], notes: '', _week: null };
+      };
+
       // SETUP TAB
       const SetupTab = () => (
         <div className="p-4 space-y-4">
@@ -218,8 +271,8 @@
                 <div key={l}>
                   <label className="text-sm text-gray-600 capitalize">{l === 'ohp' ? 'OHP' : l}</label>
                   <input type="number" value={settings.wendlerTM[l]}
-                    onChange={e => saveSettingsDebounced({...settings, wendlerTM: {...settings.wendlerTM, [l]: +e.target.value}})}
-                    className="w-full mt-1 px-3 py-2 border rounded-md"/>
+                    onChange={e => saveSettingsDebounced({ ...settings, wendlerTM: { ...settings.wendlerTM, [l]: +e.target.value } })}
+                    className="w-full mt-1 px-3 py-2 border rounded-md" />
                 </div>
               ))}
             </div>
@@ -233,14 +286,14 @@
                   <div>
                     <span className="text-xs text-gray-400">Top</span>
                     <input type="number" value={settings.calisthenics[ex].top}
-                      onChange={e => saveSettingsDebounced({...settings, calisthenics: {...settings.calisthenics, [ex]: {...settings.calisthenics[ex], top: +e.target.value}}})}
-                      className="w-full px-3 py-2 border rounded-md"/>
+                      onChange={e => saveSettingsDebounced({ ...settings, calisthenics: { ...settings.calisthenics, [ex]: { ...settings.calisthenics[ex], top: +e.target.value } } })}
+                      className="w-full px-3 py-2 border rounded-md" />
                   </div>
                   <div>
                     <span className="text-xs text-gray-400">Back-off</span>
                     <input type="number" value={settings.calisthenics[ex].backoff}
-                      onChange={e => saveSettingsDebounced({...settings, calisthenics: {...settings.calisthenics, [ex]: {...settings.calisthenics[ex], backoff: +e.target.value}}})}
-                      className="w-full px-3 py-2 border rounded-md"/>
+                      onChange={e => saveSettingsDebounced({ ...settings, calisthenics: { ...settings.calisthenics, [ex]: { ...settings.calisthenics[ex], backoff: +e.target.value } } })}
+                      className="w-full px-3 py-2 border rounded-md" />
                   </div>
                 </div>
               </div>
@@ -286,11 +339,22 @@
               </table>
             </div>
           </div>
+
           {['bench','squat','deadlift','ohp'].map(lift => (
             <div key={lift} className="bg-white rounded-lg shadow p-4">
-              <h3 className="font-bold text-gray-700 capitalize mb-2">{lift === 'ohp' ? 'OHP' : lift} — TM: {settings.wendlerTM[lift]}</h3>
+              <h3 className="font-bold text-gray-700 capitalize mb-2">
+                {lift === 'ohp' ? 'OHP' : lift} — TM: {settings.wendlerTM[lift]}
+              </h3>
               <table className="w-full text-xs">
-                <thead><tr className="bg-gray-100"><th className="px-2 py-1">Wk</th><th className="px-2 py-1">Phase</th><th className="px-2 py-1">Set 1</th><th className="px-2 py-1">Set 2</th><th className="px-2 py-1">Set 3</th></tr></thead>
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="px-2 py-1">Wk</th>
+                    <th className="px-2 py-1">Phase</th>
+                    <th className="px-2 py-1">Set 1</th>
+                    <th className="px-2 py-1">Set 2</th>
+                    <th className="px-2 py-1">Set 3</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {[1,2,3,4,5,6,7,8].map(wk => {
                     const ph = wendlerStagger[wk][lift];
@@ -298,8 +362,14 @@
                     return (
                       <tr key={wk} className={wk === currentWeek ? 'bg-blue-50' : ''}>
                         <td className="px-2 py-1 text-center">{wk}</td>
-                        <td className={`px-2 py-1 text-center ${ph===3?'bg-red-100 text-red-700':ph===4?'bg-green-100 text-green-700':''}`}>{weekNames[ph]}</td>
-                        {pcts.map((s,i) => <td key={i} className="px-2 py-1 text-center">{calcWt(settings.wendlerTM[lift], s.p)}×{s.r}</td>)}
+                        <td className={`px-2 py-1 text-center ${ph===3?'bg-red-100 text-red-700':ph===4?'bg-green-100 text-green-700':''}`}>
+                          {weekNames[ph]}
+                        </td>
+                        {pcts.map((s,i) => (
+                          <td key={i} className="px-2 py-1 text-center">
+                            {calcWt(settings.wendlerTM[lift], s.p)}×{s.r}
+                          </td>
+                        ))}
                       </tr>
                     );
                   })}
@@ -310,95 +380,110 @@
         </div>
       );
 
-      // Exercise Input Component - prevents re-render issues
-      const ExerciseInput = ({ exerciseId, setIndex, initialValue, onSave }) => {
-        const [value, setValue] = useState(initialValue);
-        return (
-          <input 
-            type="text" 
-            placeholder={`Set ${setIndex + 1}`} 
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            onBlur={() => onSave(value)}
-            className="w-full px-2 py-1 text-sm border rounded"
-          />
-        );
-      };
-
-      const NotesInput = ({ exerciseId, initialValue, onSave }) => {
-        const [value, setValue] = useState(initialValue);
-        return (
-          <input 
-            type="text" 
-            placeholder="Notes..." 
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            onBlur={() => onSave(value)}
-            className="w-full mt-2 px-2 py-1 text-sm border rounded"
-          />
-        );
-      };
-
       // WORKOUT TAB
       const WorkoutTab = () => {
         const exs = dayEx[activeDay];
         const st = wendlerStagger[currentWeek];
         const chin = getChinIntensity(currentWeek);
 
+        const renderLastSessionLine = (prev, ex) => {
+          const setsText = (prev.sets || []).filter(s => (s ?? '').toString().trim() !== '').join(' / ');
+          const notesText = (prev.notes || '').toString().trim();
+
+          if (!setsText && !notesText) return null;
+
+          return (
+            <div className="mt-2 text-xs text-gray-500">
+              <span className="font-medium text-gray-600">
+                Last{prev._week ? ` (W${prev._week})` : ''}:
+              </span>{' '}
+              {setsText && <span>{setsText}</span>}
+              {setsText && notesText && <span className="mx-1">•</span>}
+              {notesText && <span className="italic">{notesText}</span>}
+            </div>
+          );
+        };
+
         return (
           <div className="p-4 space-y-4">
             <div className="bg-white rounded-lg shadow p-3">
               <label className="text-sm text-gray-600">Week</label>
-              <select value={currentWeek} onChange={e => setCurrentWeek(+e.target.value)} className="w-full mt-1 px-3 py-2 border rounded-md">
+              <select
+                value={currentWeek}
+                onChange={e => setCurrentWeek(+e.target.value)}
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+              >
                 {[1,2,3,4,5,6,7,8].map(w => <option key={w} value={w}>Week {w}</option>)}
               </select>
             </div>
+
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="flex border-b overflow-x-auto">
                 {[1,2,3,4,5,6].map(d => (
-                  <button key={d} onClick={() => setActiveDay(d)}
-                    className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${activeDay===d?'bg-blue-50 text-blue-600 border-b-2 border-blue-500':'text-gray-500'}`}>
+                  <button
+                    key={d}
+                    onClick={() => setActiveDay(d)}
+                    className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${
+                      activeDay===d ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-500' : 'text-gray-500'
+                    }`}
+                  >
                     D{d}
                   </button>
                 ))}
               </div>
+
               <div className="p-4">
                 <h2 className="font-bold text-gray-800">{dayNames[activeDay]}</h2>
                 <p className="text-xs text-gray-500 mb-3">Week {currentWeek}</p>
-                {activeDay === 6 && <div className={`mb-3 p-2 rounded text-sm ${chin.c}`}><b>Chin-ups:</b> {chin.t}</div>}
+
+                {activeDay === 6 && (
+                  <div className={`mb-3 p-2 rounded text-sm ${chin.c}`}>
+                    <b>Chin-ups:</b> {chin.t}
+                  </div>
+                )}
+
                 <div className="space-y-3">
                   {exs.map(ex => {
                     const log = getLog(currentWeek, activeDay, ex.id);
+                    const prev = getPrevLog(currentWeek, activeDay, ex.id);
+
                     let tgt = '';
                     if (ex.w) {
                       const ph = st[ex.wl];
-                      tgt = wendlerPcts[ph].map((s,i) => `${calcWt(settings.wendlerTM[ex.wl], s.p)}×${s.r}`).join(' / ');
+                      tgt = wendlerPcts[ph].map((s) => `${calcWt(settings.wendlerTM[ex.wl], s.p)}×${s.r}`).join(' / ');
                     } else if (ex.c) {
                       tgt = `${settings.calisthenics[ex.ct][ex.st]} lbs`;
                     }
+
                     return (
                       <div key={ex.id} className="border rounded-lg p-3">
                         <div className="flex justify-between">
-                          <h3 className={`font-medium text-sm ${ex.w || ex.c ? 'text-blue-700' : 'text-gray-800'}`}>{ex.n}</h3>
+                          <h3 className={`font-medium text-sm ${ex.w || ex.c ? 'text-blue-700' : 'text-gray-800'}`}>
+                            {ex.n}
+                          </h3>
                           <span className="text-xs text-gray-400">{ex.s}×{ex.r}</span>
                         </div>
+
                         {tgt && <p className="text-xs text-blue-600 mt-1">Target: {tgt}</p>}
                         <p className="text-xs text-gray-400">{ex.nt}</p>
+
+                        {renderLastSessionLine(prev, ex)}
+
                         <div className="grid grid-cols-3 gap-2 mt-2">
-                          {Array.from({length: ex.s}, (_,i) => (
+                          {Array.from({ length: ex.s }, (_, i) => (
                             <ExerciseInput
                               key={`${ex.id}-${i}`}
-                              exerciseId={ex.id}
-                              setIndex={i}
                               initialValue={log.sets[i] || ''}
+                              placeholder={prev.sets?.[i] ? `Last: ${prev.sets[i]}` : `Set ${i + 1}`}
                               onSave={(v) => logSet(currentWeek, activeDay, ex.id, i, v)}
                             />
                           ))}
                         </div>
+
                         <NotesInput
                           key={`${ex.id}-notes`}
-                          exerciseId={ex.id}
                           initialValue={log.notes || ''}
+                          placeholder={prev.notes ? `Last: ${prev.notes}` : "Notes..."}
                           onSave={(v) => logNotes(currentWeek, activeDay, ex.id, v)}
                         />
                       </div>
@@ -430,8 +515,12 @@
                         <h4 className="text-sm font-medium text-gray-600">{dayNames[d]}</h4>
                         {Object.entries(data).map(([id, v]) => {
                           const ex = dayEx[d]?.find(e => e.id === id);
-                          if (!ex || !v.sets.filter(s=>s).length) return null;
-                          return <p key={id} className="text-xs text-gray-500 ml-2">{ex.n}: {v.sets.filter(s=>s).join(' / ')}{v.notes && ` (${v.notes})`}</p>;
+                          if (!ex || !v.sets.filter(s => s).length) return null;
+                          return (
+                            <p key={id} className="text-xs text-gray-500 ml-2">
+                              {ex.n}: {v.sets.filter(s => s).join(' / ')}{v.notes && ` (${v.notes})`}
+                            </p>
+                          );
                         })}
                       </div>
                     );
@@ -450,17 +539,25 @@
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-bold text-gray-800 mb-3">Log Bodyweight</h2>
             <div className="grid grid-cols-2 gap-3 mb-3">
-              <input type="number" step="0.1" placeholder="Weight (lbs)" value={newWeight} onChange={e => setNewWeight(e.target.value)} className="px-3 py-2 border rounded-md"/>
-              <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="px-3 py-2 border rounded-md"/>
+              <input type="number" step="0.1" placeholder="Weight (lbs)" value={newWeight}
+                onChange={e => setNewWeight(e.target.value)}
+                className="px-3 py-2 border rounded-md" />
+              <input type="date" value={newDate}
+                onChange={e => setNewDate(e.target.value)}
+                className="px-3 py-2 border rounded-md" />
             </div>
             <button onClick={() => {
               if (newWeight) {
-                const nl = [...bodyweightLogs, {weight: +newWeight, date: newDate}].sort((a,b) => new Date(a.date) - new Date(b.date));
+                const nl = [...bodyweightLogs, { weight: +newWeight, date: newDate }]
+                  .sort((a, b) => new Date(a.date) - new Date(b.date));
                 saveBW(nl);
                 setNewWeight('');
               }
-            }} className="w-full bg-blue-600 text-white py-2 rounded-md active:bg-blue-700">Log Weight</button>
+            }} className="w-full bg-blue-600 text-white py-2 rounded-md active:bg-blue-700">
+              Log Weight
+            </button>
           </div>
+
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-bold text-gray-800 mb-3">History</h2>
             {bodyweightLogs.length > 0 ? (
@@ -472,16 +569,17 @@
               ))
             ) : <p className="text-gray-400 text-center py-4">No entries</p>}
           </div>
+
           {bodyweightLogs.length >= 2 && (
             <div className="bg-white rounded-lg shadow p-4">
               <h2 className="font-bold text-gray-800 mb-2">Trend</h2>
               <div className="text-sm space-y-1">
                 <div className="flex justify-between"><span>Start:</span><span>{bodyweightLogs[0].weight} lbs</span></div>
-                <div className="flex justify-between"><span>Current:</span><span>{bodyweightLogs[bodyweightLogs.length-1].weight} lbs</span></div>
+                <div className="flex justify-between"><span>Current:</span><span>{bodyweightLogs[bodyweightLogs.length - 1].weight} lbs</span></div>
                 <div className="flex justify-between border-t pt-1"><span>Change:</span>
-                  <span className={bodyweightLogs[bodyweightLogs.length-1].weight >= bodyweightLogs[0].weight ? 'text-green-600' : 'text-red-600'}>
-                    {(bodyweightLogs[bodyweightLogs.length-1].weight - bodyweightLogs[0].weight) >= 0 ? '+' : ''}
-                    {(bodyweightLogs[bodyweightLogs.length-1].weight - bodyweightLogs[0].weight).toFixed(1)} lbs
+                  <span className={bodyweightLogs[bodyweightLogs.length - 1].weight >= bodyweightLogs[0].weight ? 'text-green-600' : 'text-red-600'}>
+                    {(bodyweightLogs[bodyweightLogs.length - 1].weight - bodyweightLogs[0].weight) >= 0 ? '+' : ''}
+                    {(bodyweightLogs[bodyweightLogs.length - 1].weight - bodyweightLogs[0].weight).toFixed(1)} lbs
                   </span>
                 </div>
               </div>
@@ -499,6 +597,7 @@
             </div>
             {saveStatus && <span className="text-green-300 text-sm">{saveStatus}</span>}
           </div>
+
           <div className="pb-20">
             {activeTab === 'setup' && <SetupTab />}
             {activeTab === 'wendler' && <WendlerTab />}
@@ -506,16 +605,20 @@
             {activeTab === 'history' && <HistoryTab />}
             {activeTab === 'bodyweight' && <BodyweightTab />}
           </div>
+
           <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex safe-area-inset-bottom">
             {[
-              {id: 'workout', l: 'Workout', i: '🏋️'},
-              {id: 'wendler', l: 'Wendler', i: '📊'},
-              {id: 'history', l: 'History', i: '📜'},
-              {id: 'bodyweight', l: 'Weight', i: '⚖️'},
-              {id: 'setup', l: 'Setup', i: '⚙️'}
+              { id: 'workout', l: 'Workout', i: '🏋️' },
+              { id: 'wendler', l: 'Wendler', i: '📊' },
+              { id: 'history', l: 'History', i: '📜' },
+              { id: 'bodyweight', l: 'Weight', i: '⚖️' },
+              { id: 'setup', l: 'Setup', i: '⚙️' }
             ].map(t => (
-              <button key={t.id} onClick={() => setActiveTab(t.id)}
-                className={`flex-1 py-3 text-center ${activeTab === t.id ? 'text-blue-600 bg-blue-50' : 'text-gray-500'}`}>
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                className={`flex-1 py-3 text-center ${activeTab === t.id ? 'text-blue-600 bg-blue-50' : 'text-gray-500'}`}
+              >
                 <div className="text-xl">{t.i}</div>
                 <div className="text-xs">{t.l}</div>
               </button>
