@@ -10,8 +10,10 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { -webkit-tap-highlight-color: transparent; }
-    input, select { font-size: 16px !important; }
+    /* Fix for iOS Safari text size zooming */
+    input, select, textarea { font-size: 16px !important; }
   </style>
+  <link rel="apple-touch-icon" href="/icon-180.png" />
 </head>
 <body>
   <div id="root"></div>
@@ -43,14 +45,25 @@
 
     const isFilled = (s) => (s ?? "").toString().trim().length > 0;
 
-    // ---- INPUTS (OUTSIDE COMPONENT TO PREVENT FOCUS DROPS) ----
+    // ---- SMART INPUTS (AUTO-RESIZING TEXTAREAS) ----
+    
     const ExerciseInput = React.memo(({ placeholder, initialValue, lastValue, onSave }) => {
       const [value, setValue] = useState(initialValue);
       const isEditingRef = useRef(false);
+      const textareaRef = useRef(null);
 
+      // Sync with parent updates
       useEffect(() => {
         if (!isEditingRef.current) setValue(initialValue);
       }, [initialValue]);
+
+      // Auto-Resize Logic
+      useEffect(() => {
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+          textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+        }
+      }, [value]);
 
       const lastW = parseFirstNumber(lastValue);
       const currW = parseFirstNumber(value);
@@ -60,8 +73,9 @@
 
       return (
         <div className="relative">
-          <input
-            type="text"
+          <textarea
+            ref={textareaRef}
+            rows={1}
             placeholder={placeholder}
             value={value}
             onFocus={() => { isEditingRef.current = true; }}
@@ -70,8 +84,10 @@
               isEditingRef.current = false;
               onSave(value);
             }}
-            className="w-full px-2 py-1 text-sm border rounded pr-14"
+            className="w-full px-2 py-1.5 text-sm border rounded resize-none overflow-hidden block min-h-[34px] leading-snug"
+            style={{ paddingRight: isFilled(lastValue) ? '3rem' : '0.5rem' }} 
           />
+          
           {isFilled(lastValue) && (
             <button
               type="button"
@@ -80,13 +96,14 @@
                 setValue(lastValue);
                 onSave(lastValue);
               }}
-              className="absolute right-1 top-1/2 -translate-y-1/2 text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-700 active:bg-gray-200"
+              className="absolute right-1 top-1 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 active:bg-gray-200 border"
               title="Copy last set"
             >
               Copy
             </button>
           )}
-          <div className={`mt-1 text-[11px] ${deltaClass}`}>
+
+          <div className={`mt-0.5 text-[10px] font-medium text-right pr-1 ${deltaClass}`}>
             {showDelta ? (delta > 0 ? `+${delta}` : `${delta}`) : (isFilled(lastValue) ? " " : " ")}
           </div>
         </div>
@@ -96,15 +113,25 @@
     const NotesInput = React.memo(({ placeholder, initialValue, lastValue, onSave }) => {
       const [value, setValue] = useState(initialValue);
       const isEditingRef = useRef(false);
+      const textareaRef = useRef(null);
 
       useEffect(() => {
         if (!isEditingRef.current) setValue(initialValue);
       }, [initialValue]);
 
+      // Auto-Resize Logic
+      useEffect(() => {
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+          textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+        }
+      }, [value]);
+
       return (
-        <div className="relative">
-          <input
-            type="text"
+        <div className="relative mt-2">
+          <textarea
+            ref={textareaRef}
+            rows={1}
             placeholder={placeholder || "Notes..."}
             value={value}
             onFocus={() => { isEditingRef.current = true; }}
@@ -113,7 +140,8 @@
               isEditingRef.current = false;
               onSave(value);
             }}
-            className="w-full mt-2 px-2 py-1 text-sm border rounded pr-14"
+            className="w-full px-2 py-1.5 text-sm border rounded resize-none overflow-hidden block min-h-[34px] leading-snug"
+            style={{ paddingRight: isFilled(lastValue) ? '3rem' : '0.5rem' }}
           />
           {isFilled(lastValue) && (
             <button
@@ -123,7 +151,7 @@
                 setValue(lastValue);
                 onSave(lastValue);
               }}
-              className="absolute right-1 top-1/2 translate-y-1 text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-700 active:bg-gray-200"
+              className="absolute right-1 top-1 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 active:bg-gray-200 border"
               title="Copy last notes"
             >
               Copy
