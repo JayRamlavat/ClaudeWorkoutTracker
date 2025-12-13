@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Tracker" />
-  <title>Workout Tracker</title>
+  <meta name="apple-mobile-web-app-title" content="Jay's Tracker" />
+  <title>Jay's Workout Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { -webkit-tap-highlight-color: transparent; }
-    input, select { font-size: 16px !important; } /* prevents iOS zoom */
+    input, select { font-size: 16px !important; }
   </style>
 </head>
 <body>
@@ -44,11 +44,10 @@
     const isFilled = (s) => (s ?? "").toString().trim().length > 0;
 
     // ---- INPUTS (OUTSIDE COMPONENT TO PREVENT FOCUS DROPS) ----
-    const ExerciseInput = React.memo(({ placeholder, initialValue, lastValue, onSave, onEditStart, onEditEnd }) => {
+    const ExerciseInput = React.memo(({ placeholder, initialValue, lastValue, onSave }) => {
       const [value, setValue] = useState(initialValue);
       const isEditingRef = useRef(false);
 
-      // Only sync down from parent when NOT actively editing.
       useEffect(() => {
         if (!isEditingRef.current) setValue(initialValue);
       }, [initialValue]);
@@ -56,13 +55,8 @@
       const lastW = parseFirstNumber(lastValue);
       const currW = parseFirstNumber(value);
       const delta = (lastW != null && currW != null) ? (currW - lastW) : null;
-
       const showDelta = delta != null && delta !== 0;
-      const deltaClass = !showDelta
-        ? "text-gray-400"
-        : delta > 0
-          ? "text-green-600"
-          : "text-red-600";
+      const deltaClass = !showDelta ? "text-gray-400" : delta > 0 ? "text-green-600" : "text-red-600";
 
       return (
         <div className="relative">
@@ -70,24 +64,18 @@
             type="text"
             placeholder={placeholder}
             value={value}
-            onFocus={() => {
-              isEditingRef.current = true;
-              onEditStart?.();
-            }}
+            onFocus={() => { isEditingRef.current = true; }}
             onChange={e => setValue(e.target.value)}
             onBlur={() => {
               isEditingRef.current = false;
-              onEditEnd?.();
               onSave(value);
             }}
             className="w-full px-2 py-1 text-sm border rounded pr-14"
           />
-
-          {/* Tap-to-copy chip (shows only if lastValue exists) */}
           {isFilled(lastValue) && (
             <button
               type="button"
-              onPointerDown={(e) => e.preventDefault()}  // mobile-safe: prevents focus loss/weird blur
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 setValue(lastValue);
                 onSave(lastValue);
@@ -98,16 +86,14 @@
               Copy
             </button>
           )}
-
-          {/* Delta hint */}
           <div className={`mt-1 text-[11px] ${deltaClass}`}>
-            {showDelta ? (delta > 0 ? `+${delta}` : `${delta}`) : " "}
+            {showDelta ? (delta > 0 ? `+${delta}` : `${delta}`) : (isFilled(lastValue) ? " " : " ")}
           </div>
         </div>
       );
     });
 
-    const NotesInput = React.memo(({ placeholder, initialValue, lastValue, onSave, onEditStart, onEditEnd }) => {
+    const NotesInput = React.memo(({ placeholder, initialValue, lastValue, onSave }) => {
       const [value, setValue] = useState(initialValue);
       const isEditingRef = useRef(false);
 
@@ -121,14 +107,10 @@
             type="text"
             placeholder={placeholder || "Notes..."}
             value={value}
-            onFocus={() => {
-              isEditingRef.current = true;
-              onEditStart?.();
-            }}
+            onFocus={() => { isEditingRef.current = true; }}
             onChange={e => setValue(e.target.value)}
             onBlur={() => {
               isEditingRef.current = false;
-              onEditEnd?.();
               onSave(value);
             }}
             className="w-full mt-2 px-2 py-1 text-sm border rounded pr-14"
@@ -136,12 +118,12 @@
           {isFilled(lastValue) && (
             <button
               type="button"
-              onPointerDown={(e) => e.preventDefault()}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 setValue(lastValue);
                 onSave(lastValue);
               }}
-              className="absolute right-1 top-1/2 -translate-y-1/2 text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-700 active:bg-gray-200"
+              className="absolute right-1 top-1/2 translate-y-1 text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-700 active:bg-gray-200"
               title="Copy last notes"
             >
               Copy
@@ -151,19 +133,27 @@
       );
     });
 
-const WorkoutTracker = () => {
+    // ---- MAIN APP ----
+    const WorkoutTracker = () => {
+      // 1. STATE & CONFIG
       const [activeTab, setActiveTab] = useState('workout');
       const [currentWeek, setCurrentWeek] = useState(1);
       const [activeDay, setActiveDay] = useState(1);
       const [saveStatus, setSaveStatus] = useState('');
+      
+      // CLOUD CONFIG (Securely loaded from user input)
+      const BASKET_NAME = "jays-workout-tracker";
+      const [pantryId, setPantryId] = useState(() => {
+        return localStorage.getItem('jay-pantry-id') || '';
+      });
+      const getCloudUrl = (id) => `https://getpantry.cloud/apiv1/pantry/${id}/basket/${BASKET_NAME}`;
 
+      // 2. DATA STATE (Load from LocalStorage first)
       const [settings, setSettings] = useState(() => {
         try {
           const s = localStorage.getItem('jay-settings');
           return s ? JSON.parse(s) : defaultSettings;
-        } catch (e) {
-          return defaultSettings;
-        }
+        } catch (e) { return defaultSettings; }
       });
 
       const [workoutLogs, setWorkoutLogs] = useState(() => {
@@ -183,37 +173,83 @@ const WorkoutTracker = () => {
       const [newWeight, setNewWeight] = useState('');
       const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
 
-      // Debounced save
-      const saveTimeout = useRef(null);
-      const showSaved = () => {
-        setSaveStatus('Saved ✓');
-        setTimeout(() => setSaveStatus(''), 2000);
+      // 3. CLOUD SYNC LOGIC
+      
+      // A. Load from Cloud on App Start or when ID changes
+      useEffect(() => {
+        if (!pantryId) return;
+        
+        const loadCloudData = async () => {
+          try {
+            const res = await fetch(getCloudUrl(pantryId));
+            if (!res.ok) return; 
+            const data = await res.json();
+            
+            if (data.settings) {
+              setSettings(data.settings);
+              localStorage.setItem('jay-settings', JSON.stringify(data.settings));
+            }
+            if (data.logs) {
+              setWorkoutLogs(data.logs);
+              localStorage.setItem('jay-workout-logs', JSON.stringify(data.logs));
+            }
+            if (data.bw) {
+              setBodyweightLogs(data.bw);
+              localStorage.setItem('jay-bodyweight-logs', JSON.stringify(data.bw));
+            }
+            setSaveStatus('Synced ☁️');
+            setTimeout(() => setSaveStatus(''), 2000);
+          } catch (e) {
+            console.error("Cloud load error:", e);
+          }
+        };
+        loadCloudData();
+      }, [pantryId]);
+
+      // B. Helper to push updates to Cloud
+      const pushToCloud = (key, data) => {
+        if (!pantryId) return;
+        
+        fetch(getCloudUrl(pantryId), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [key]: data })
+        }).then(() => {
+           setSaveStatus('Saved ☁️');
+           setTimeout(() => setSaveStatus(''), 2000);
+        }).catch(() => setSaveStatus('Cloud Error ❌'));
       };
+
+      // 4. SAVE HANDLERS
+      const saveTimeout = useRef(null);
 
       const saveSettingsDebounced = useCallback((s) => {
         setSettings(s);
+        localStorage.setItem('jay-settings', JSON.stringify(s));
+        
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
         saveTimeout.current = setTimeout(() => {
-          localStorage.setItem('jay-settings', JSON.stringify(s));
-          showSaved();
-        }, 500);
-      }, []);
+          pushToCloud('settings', s);
+        }, 1000);
+      }, [pantryId]);
 
       const saveLogsDebounced = useCallback((l) => {
         setWorkoutLogs(l);
+        localStorage.setItem('jay-workout-logs', JSON.stringify(l));
+        
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
         saveTimeout.current = setTimeout(() => {
-          localStorage.setItem('jay-workout-logs', JSON.stringify(l));
-          showSaved();
-        }, 500);
-      }, []);
+          pushToCloud('logs', l);
+        }, 1000);
+      }, [pantryId]);
 
       const saveBW = (l) => {
         setBodyweightLogs(l);
         localStorage.setItem('jay-bodyweight-logs', JSON.stringify(l));
-        showSaved();
+        pushToCloud('bw', l);
       };
 
+      // 5. HELPER DATA
       const wendlerStagger = {
         1: { bench: 1, ohp: 3, deadlift: 2, squat: 4 },
         2: { bench: 2, ohp: 4, deadlift: 3, squat: 1 },
@@ -338,9 +374,30 @@ const WorkoutTracker = () => {
         return { sets: [], notes: '', _week: null };
       };
 
-      // ---- CHANGED TO RENDER FUNCTIONS ----
+      // ---- RENDER FUNCTIONS ----
       const renderSetupTab = () => (
         <div className="p-4 space-y-4">
+          
+          {/* CLOUD SYNC SECTION */}
+          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+            <h2 className="font-bold text-gray-800 mb-2">Cloud Sync Setup</h2>
+            <p className="text-xs text-gray-500 mb-2">
+              To sync across devices, create a free bucket at <a href="https://getpantry.cloud" target="_blank" className="text-blue-600 underline">getpantry.cloud</a> and paste your ID here.
+            </p>
+            <input
+              type="text"
+              placeholder="Paste Pantry ID here..."
+              value={pantryId}
+              onChange={(e) => {
+                const newId = e.target.value.trim();
+                setPantryId(newId);
+                localStorage.setItem('jay-pantry-id', newId);
+              }}
+              className="w-full px-3 py-2 border rounded-md text-sm font-mono"
+            />
+            {pantryId && <p className="text-xs text-green-600 mt-2 font-bold">Sync Active ✓</p>}
+          </div>
+
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-bold text-gray-800 mb-3">Wendler TMs (lbs)</h2>
             <div className="grid grid-cols-2 gap-3">
@@ -672,7 +729,7 @@ const WorkoutTracker = () => {
         <div className="min-h-screen bg-gray-100">
           <div className="bg-blue-700 text-white p-4 flex justify-between items-center">
             <div>
-              <h1 className="text-lg font-bold">Workout Tracker</h1>
+              <h1 className="text-lg font-bold">Jay's Workout Tracker</h1>
               <p className="text-blue-200 text-xs">Staggered Wendler + Weighted Calisthenics</p>
             </div>
             {saveStatus && <span className="text-green-300 text-sm">{saveStatus}</span>}
