@@ -10,7 +10,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { -webkit-tap-highlight-color: transparent; }
-    input, select { font-size: 16px !important; }
+    input, select { font-size: 16px !important; } /* prevents iOS zoom */
   </style>
 </head>
 <body>
@@ -44,7 +44,7 @@
     const isFilled = (s) => (s ?? "").toString().trim().length > 0;
 
     // ---- INPUTS (OUTSIDE COMPONENT TO PREVENT FOCUS DROPS) ----
-    const ExerciseInput = React.memo(({ placeholder, initialValue, lastValue, onSave }) => {
+    const ExerciseInput = React.memo(({ placeholder, initialValue, lastValue, onSave, onEditStart, onEditEnd }) => {
       const [value, setValue] = useState(initialValue);
       const isEditingRef = useRef(false);
 
@@ -70,10 +70,14 @@
             type="text"
             placeholder={placeholder}
             value={value}
-            onFocus={() => { isEditingRef.current = true; }}
+            onFocus={() => {
+              isEditingRef.current = true;
+              onEditStart?.();
+            }}
             onChange={e => setValue(e.target.value)}
             onBlur={() => {
               isEditingRef.current = false;
+              onEditEnd?.();
               onSave(value);
             }}
             className="w-full px-2 py-1 text-sm border rounded pr-14"
@@ -83,7 +87,7 @@
           {isFilled(lastValue) && (
             <button
               type="button"
-              onMouseDown={(e) => e.preventDefault()}  // prevents losing focus weirdness on mobile
+              onPointerDown={(e) => e.preventDefault()}  // mobile-safe: prevents focus loss/weird blur
               onClick={() => {
                 setValue(lastValue);
                 onSave(lastValue);
@@ -97,13 +101,13 @@
 
           {/* Delta hint */}
           <div className={`mt-1 text-[11px] ${deltaClass}`}>
-            {showDelta ? (delta > 0 ? `+${delta}` : `${delta}`) : (isFilled(lastValue) ? " " : " ")}
+            {showDelta ? (delta > 0 ? `+${delta}` : `${delta}`) : " "}
           </div>
         </div>
       );
     });
 
-    const NotesInput = React.memo(({ placeholder, initialValue, lastValue, onSave, onCopyLast }) => {
+    const NotesInput = React.memo(({ placeholder, initialValue, lastValue, onSave, onEditStart, onEditEnd }) => {
       const [value, setValue] = useState(initialValue);
       const isEditingRef = useRef(false);
 
@@ -117,10 +121,14 @@
             type="text"
             placeholder={placeholder || "Notes..."}
             value={value}
-            onFocus={() => { isEditingRef.current = true; }}
+            onFocus={() => {
+              isEditingRef.current = true;
+              onEditStart?.();
+            }}
             onChange={e => setValue(e.target.value)}
             onBlur={() => {
               isEditingRef.current = false;
+              onEditEnd?.();
               onSave(value);
             }}
             className="w-full mt-2 px-2 py-1 text-sm border rounded pr-14"
@@ -128,12 +136,12 @@
           {isFilled(lastValue) && (
             <button
               type="button"
-              onMouseDown={(e) => e.preventDefault()}
+              onPointerDown={(e) => e.preventDefault()}
               onClick={() => {
                 setValue(lastValue);
                 onSave(lastValue);
               }}
-              className="absolute right-1 top-1/2 translate-y-1 text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-700 active:bg-gray-200"
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-700 active:bg-gray-200"
               title="Copy last notes"
             >
               Copy
@@ -175,12 +183,41 @@
       const [newWeight, setNewWeight] = useState('');
       const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
 
+      // ---- Fix for "focus drops after 2-3s" on iOS:
+      // Don't cause header/layout changes while an input is focused.
+      // We'll track editing count, and only show/clear "Saved ✓" when NOT editing.
+      const editingCountRef = useRef(0);
+      const pendingSavedRef = useRef(false);
+      const clearSavedTimeoutRef = useRef(null);
+
+      const onEditStart = useCallback(() => {
+        editingCountRef.current += 1;
+      }, []);
+
+      const onEditEnd = useCallback(() => {
+        editingCountRef.current = Math.max(0, editingCountRef.current - 1);
+        if (editingCountRef.current === 0 && pendingSavedRef.current) {
+          pendingSavedRef.current = false;
+          // show the saved toast now that we're not editing
+          setSaveStatus('Saved ✓');
+          if (clearSavedTimeoutRef.current) clearTimeout(clearSavedTimeoutRef.current);
+          clearSavedTimeoutRef.current = setTimeout(() => setSaveStatus(''), 2000);
+        }
+      }, []);
+
       // Debounced save
       const saveTimeout = useRef(null);
-      const showSaved = () => {
+
+      const showSaved = useCallback(() => {
+        // If user is currently focused in any input, defer the toast until editing ends.
+        if (editingCountRef.current > 0) {
+          pendingSavedRef.current = true;
+          return;
+        }
         setSaveStatus('Saved ✓');
-        setTimeout(() => setSaveStatus(''), 2000);
-      };
+        if (clearSavedTimeoutRef.current) clearTimeout(clearSavedTimeoutRef.current);
+        clearSavedTimeoutRef.current = setTimeout(() => setSaveStatus(''), 2000);
+      }, []);
 
       const saveSettingsDebounced = useCallback((s) => {
         setSettings(s);
@@ -189,7 +226,7 @@
           localStorage.setItem('jay-settings', JSON.stringify(s));
           showSaved();
         }, 500);
-      }, []);
+      }, [showSaved]);
 
       const saveLogsDebounced = useCallback((l) => {
         setWorkoutLogs(l);
@@ -198,7 +235,7 @@
           localStorage.setItem('jay-workout-logs', JSON.stringify(l));
           showSaved();
         }, 500);
-      }, []);
+      }, [showSaved]);
 
       const saveBW = (l) => {
         setBodyweightLogs(l);
@@ -566,6 +603,8 @@
                               lastValue={prev.sets?.[i] || ''}
                               placeholder={prev.sets?.[i] ? `Last: ${prev.sets[i]}` : `Set ${i + 1}`}
                               onSave={(v) => logSet(currentWeek, activeDay, ex.id, i, v)}
+                              onEditStart={onEditStart}
+                              onEditEnd={onEditEnd}
                             />
                           ))}
                         </div>
@@ -576,6 +615,8 @@
                           lastValue={prev.notes || ''}
                           placeholder={prev.notes ? `Last: ${prev.notes}` : "Notes..."}
                           onSave={(v) => logNotes(currentWeek, activeDay, ex.id, v)}
+                          onEditStart={onEditStart}
+                          onEditEnd={onEditEnd}
                         />
                       </div>
                     );
@@ -674,7 +715,11 @@
               <h1 className="text-lg font-bold">Jay's Workout Tracker</h1>
               <p className="text-blue-200 text-xs">Staggered Wendler + Weighted Calisthenics</p>
             </div>
-            {saveStatus && <span className="text-green-300 text-sm">{saveStatus}</span>}
+
+            {/* Reserve space so layout doesn't change (helps prevent iOS focus drops) */}
+            <span className="text-green-300 text-sm min-w-[72px] text-right">
+              {saveStatus || ""}
+            </span>
           </div>
 
           <div className="pb-20">
