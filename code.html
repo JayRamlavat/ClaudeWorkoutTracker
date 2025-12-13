@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Jay's Tracker">
+  <title>Jay's Workout Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { -webkit-tap-highlight-color: transparent; }
+    input, select { font-size: 16px !important; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useRef } = React;
+
+    const WorkoutTracker = () => {
+      const [activeTab, setActiveTab] = useState('workout');
+      const [currentWeek, setCurrentWeek] = useState(1);
+      const [activeDay, setActiveDay] = useState(1);
+      const [saveStatus, setSaveStatus] = useState('');
+      
+      const [settings, setSettings] = useState(() => {
+        try {
+          const s = localStorage.getItem('jay-settings');
+          return s ? JSON.parse(s) : null;
+        } catch(e) { return null; }
+      } || {
+        wendlerTM: { bench: 205, squat: 290, deadlift: 375, ohp: 120 },
+        calisthenics: { 
+          dips: { top: 80, backoff: 60 },
+          pullups: { top: 80, backoff: 60 },
+          chinups: { top: 90, backoff: 65 }
+        },
+        bodyweight: 155
+      });
+
+      const [workoutLogs, setWorkoutLogs] = useState(() => {
+        try {
+          const w = localStorage.getItem('jay-workout-logs');
+          return w ? JSON.parse(w) : {};
+        } catch(e) { return {}; }
+      });
+
+      const [bodyweightLogs, setBodyweightLogs] = useState(() => {
+        try {
+          const b = localStorage.getItem('jay-bodyweight-logs');
+          return b ? JSON.parse(b) : [];
+        } catch(e) { return []; }
+      });
+
+      const [newWeight, setNewWeight] = useState('');
+      const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
+
+      // Debounced save
+      const saveTimeout = useRef(null);
+      const showSaved = () => {
+        setSaveStatus('Saved ✓');
+        setTimeout(() => setSaveStatus(''), 2000);
+      };
+
+      const saveSettingsDebounced = useCallback((s) => {
+        setSettings(s);
+        if (saveTimeout.current) clearTimeout(saveTimeout.current);
+        saveTimeout.current = setTimeout(() => {
+          localStorage.setItem('jay-settings', JSON.stringify(s));
+          showSaved();
+        }, 500);
+      }, []);
+
+      const saveLogsDebounced = useCallback((l) => {
+        setWorkoutLogs(l);
+        if (saveTimeout.current) clearTimeout(saveTimeout.current);
+        saveTimeout.current = setTimeout(() => {
+          localStorage.setItem('jay-workout-logs', JSON.stringify(l));
+          showSaved();
+        }, 500);
+      }, []);
+
+      const saveBW = (l) => {
+        setBodyweightLogs(l);
+        localStorage.setItem('jay-bodyweight-logs', JSON.stringify(l));
+        showSaved();
+      };
+
+      const wendlerStagger = {
+        1: { bench: 1, ohp: 3, deadlift: 2, squat: 4 },
+        2: { bench: 2, ohp: 4, deadlift: 3, squat: 1 },
+        3: { bench: 3, ohp: 1, deadlift: 4, squat: 2 },
+        4: { bench: 4, ohp: 2, deadlift: 1, squat: 3 },
+        5: { bench: 1, ohp: 3, deadlift: 2, squat: 4 },
+        6: { bench: 2, ohp: 4, deadlift: 3, squat: 1 },
+        7: { bench: 3, ohp: 1, deadlift: 4, squat: 2 },
+        8: { bench: 4, ohp: 2, deadlift: 1, squat: 3 }
+      };
+
+      const wendlerPcts = {
+        1: [{ p: 0.65, r: '5' }, { p: 0.75, r: '5' }, { p: 0.85, r: '5+' }],
+        2: [{ p: 0.70, r: '3' }, { p: 0.80, r: '3' }, { p: 0.90, r: '3+' }],
+        3: [{ p: 0.75, r: '5' }, { p: 0.85, r: '3' }, { p: 0.95, r: '1+' }],
+        4: [{ p: 0.40, r: '5' }, { p: 0.50, r: '5' }, { p: 0.60, r: '5' }]
+      };
+
+      const weekNames = { 1: '5s', 2: '3s', 3: '5/3/1', 4: 'Deload' };
+      const calcWt = (tm, p) => Math.round(tm * p / 5) * 5;
+
+      const getChinIntensity = (w) => {
+        const ohp = wendlerStagger[w].ohp;
+        if (ohp === 4) return { t: 'Push Hard', c: 'bg-green-100 text-green-700' };
+        if (ohp === 3) return { t: 'Cap RPE 8', c: 'bg-red-100 text-red-700' };
+        return { t: 'Normal', c: 'bg-gray-100 text-gray-700' };
+      };
+
+      const dayEx = {
+        1: [
+          { id: 'bench', n: 'Bench Press (Wendler)', w: true, wl: 'bench', s: 3, r: 'cycle', nt: 'AMRAP last set' },
+          { id: 'd1_tbar', n: 'T-Bar Rows', s: 2, r: '4-6', nt: 'Full ROM' },
+          { id: 'd1_inc', n: 'Incline DB Press', s: 2, r: '5-9', nt: 'Tucked elbows' },
+          { id: 'd1_curl', n: 'EZ Bar Curls', s: 2, r: '6-10', nt: 'Short head' },
+          { id: 'd1_push', n: 'Seated Pushdown Machine', s: 3, r: '6-10', nt: 'Lateral/medial' },
+          { id: 'd1_lat', n: 'Lateral Raises', s: 2, r: '8-12', nt: 'Side delt' },
+          { id: 'd1_calf', n: 'Leg Press Calf Raises', s: 2, r: '12-15', nt: 'Full ROM' }
+        ],
+        2: [
+          { id: 'dead', n: 'Deadlift (Wendler)', w: true, wl: 'deadlift', s: 3, r: 'cycle', nt: 'AMRAP last set' },
+          { id: 'd2_pause', n: 'Pause Squat', s: 2, r: '3-5', nt: '2s pause' },
+          { id: 'd2_calf', n: 'Seated Calf Raises', s: 3, r: '12-20', nt: 'Soleus' },
+          { id: 'd2_ham', n: 'Hamstring Curls', s: 1, r: '8-10', nt: 'Maintenance' },
+          { id: 'd2_rdl', n: 'Single-Leg RDL', s: 1, r: '8-10', nt: 'RIGHT first' },
+          { id: 'd2_rot', n: 'External Rotations', s: 2, r: '6-10', nt: 'Prehab' },
+          { id: 'd2_drag', n: 'Dragon Flags', s: 2, r: '5-8', nt: 'Lower abs' }
+        ],
+        3: [
+          { id: 'dip_t', n: 'Weighted Dips (Top)', c: true, ct: 'dips', st: 'top', s: 1, r: '3-5', nt: 'Near failure' },
+          { id: 'dip_b', n: 'Weighted Dips (Back-off)', c: true, ct: 'dips', st: 'backoff', s: 2, r: '6-8', nt: '~75% top' },
+          { id: 'd3_preach', n: 'Preacher Curl Machine', s: 3, r: '6-10', nt: 'Short head' },
+          { id: 'd3_oh', n: 'OH Cable Extensions', s: 3, r: '10-15', nt: 'Long head' },
+          { id: 'd3_inc', n: 'Incline DB Curls', s: 3, r: '8-12', nt: 'Long head' },
+          { id: 'd3_lat', n: 'Cable Lateral Raises', s: 3, r: '10-12', nt: 'Side delt' },
+          { id: 'd3_rev', n: 'Reverse Pec Deck', s: 3, r: '8-12', nt: 'Rear delt' }
+        ],
+        4: [
+          { id: 'pull_t', n: 'Weighted Pull-ups (Top)', c: true, ct: 'pullups', st: 'top', s: 1, r: '3-5', nt: 'Near failure' },
+          { id: 'pull_b', n: 'Weighted Pull-ups (Back-off)', c: true, ct: 'pullups', st: 'backoff', s: 2, r: '6-8', nt: '~75% top' },
+          { id: 'd4_flat', n: 'Flat DB Press', s: 2, r: '4-8', nt: '45° elbows' },
+          { id: 'd4_row', n: 'Barbell Row', s: 2, r: '5-8', nt: 'Pause reps' },
+          { id: 'd4_inc', n: 'Incline Press Machine', s: 2, r: '6-10', nt: 'Chest' },
+          { id: 'd4_pec', n: 'Pec Deck', s: 2, r: '8-11', nt: 'Isolation' },
+          { id: 'd4_ql', n: 'QL Extensions', s: 1, r: '12-15', nt: 'LEFT first' }
+        ],
+        5: [
+          { id: 'squat', n: 'Back Squat (Wendler)', w: true, wl: 'squat', s: 3, r: 'cycle', nt: 'AMRAP last set' },
+          { id: 'd5_rdl', n: 'Romanian Deadlift', s: 2, r: '3-6', nt: 'Posterior chain' },
+          { id: 'd5_ext', n: 'Leg Extensions', s: 2, r: '6-10', nt: 'Quad maintenance' },
+          { id: 'd5_calf', n: 'Standing Calf Raises', s: 3, r: '8-15', nt: 'Gastrocnemius' },
+          { id: 'd5_leg', n: 'Leg Raises', s: 2, r: '6-10', nt: 'Lower abs' },
+          { id: 'd5_abs', n: 'Abs Machine', s: 2, r: '6-10', nt: 'Core' }
+        ],
+        6: [
+          { id: 'chin_t', n: 'Weighted Chin-ups (Top)', c: true, ct: 'chinups', st: 'top', s: 1, r: '3-5', nt: 'See intensity' },
+          { id: 'chin_b', n: 'Weighted Chin-ups (Back-off)', c: true, ct: 'chinups', st: 'backoff', s: 2, r: '6-8', nt: '~75% top' },
+          { id: 'ohp', n: 'OHP (Wendler)', w: true, wl: 'ohp', s: 3, r: 'cycle', nt: 'AMRAP last set' },
+          { id: 'd6_vbar', n: 'V-Bar Pushdowns', s: 3, r: '6-10', nt: 'Lateral/medial' },
+          { id: 'd6_bay', n: 'Bayesian Curls', s: 3, r: '10-15', nt: 'Long head' },
+          { id: 'd6_spider', n: 'Spider Curls', s: 2, r: '8-12', nt: 'Short head' },
+          { id: 'd6_lat', n: 'Machine Lateral Raises', s: 2, r: '6-10', nt: 'Side delt' },
+          { id: 'd6_face', n: 'Face Pulls', s: 2, r: '12-15', nt: 'Rear delt' }
+        ]
+      };
+
+      const dayNames = {
+        1: 'D1: Chest+Back+Arms',
+        2: 'D2: Lower+Core',
+        3: 'D3: Arms+Delts',
+        4: 'D4: Chest+Back Vol',
+        5: 'D5: Lower Maint',
+        6: 'D6: Arms+Delts'
+      };
+
+      const logSet = (w, d, ex, i, v) => {
+        const k = `${w}-${d}`;
+        const nl = { ...workoutLogs };
+        if (!nl[k]) nl[k] = {};
+        if (!nl[k][ex]) nl[k][ex] = { sets: [], notes: '' };
+        nl[k][ex].sets[i] = v;
+        saveLogsDebounced(nl);
+      };
+
+      const logNotes = (w, d, ex, v) => {
+        const k = `${w}-${d}`;
+        const nl = { ...workoutLogs };
+        if (!nl[k]) nl[k] = {};
+        if (!nl[k][ex]) nl[k][ex] = { sets: [], notes: '' };
+        nl[k][ex].notes = v;
+        saveLogsDebounced(nl);
+      };
+
+      const getLog = (w, d, ex) => workoutLogs[`${w}-${d}`]?.[ex] || { sets: [], notes: '' };
+
+      // SETUP TAB
+      const SetupTab = () => (
+        <div className="p-4 space-y-4">
+          <div className="bg-white rounded-lg shadow p-4">
+            <h2 className="font-bold text-gray-800 mb-3">Wendler TMs (lbs)</h2>
+            <div className="grid grid-cols-2 gap-3">
+              {['bench', 'squat', 'deadlift', 'ohp'].map(l => (
+                <div key={l}>
+                  <label className="text-sm text-gray-600 capitalize">{l === 'ohp' ? 'OHP' : l}</label>
+                  <input type="number" value={settings.wendlerTM[l]}
+                    onChange={e => saveSettingsDebounced({...settings, wendlerTM: {...settings.wendlerTM, [l]: +e.target.value}})}
+                    className="w-full mt-1 px-3 py-2 border rounded-md"/>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h2 className="font-bold text-gray-800 mb-3">Calisthenics (lbs)</h2>
+            {['dips', 'pullups', 'chinups'].map(ex => (
+              <div key={ex} className="mb-3">
+                <label className="text-sm text-gray-600 capitalize">{ex === 'pullups' ? 'Pull-ups' : ex === 'chinups' ? 'Chin-ups' : 'Dips'}</label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <div>
+                    <span className="text-xs text-gray-400">Top</span>
+                    <input type="number" value={settings.calisthenics[ex].top}
+                      onChange={e => saveSettingsDebounced({...settings, calisthenics: {...settings.calisthenics, [ex]: {...settings.calisthenics[ex], top: +e.target.value}}})}
+                      className="w-full px-3 py-2 border rounded-md"/>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-400">Back-off</span>
+                    <input type="number" value={settings.calisthenics[ex].backoff}
+                      onChange={e => saveSettingsDebounced({...settings, calisthenics: {...settings.calisthenics, [ex]: {...settings.calisthenics[ex], backoff: +e.target.value}}})}
+                      className="w-full px-3 py-2 border rounded-md"/>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+
+      // WENDLER TAB
+      const WendlerTab = () => (
+        <div className="p-4 space-y-4">
+          <div className="bg-white rounded-lg shadow p-4">
+            <h2 className="font-bold text-gray-800 mb-3">8-Week Stagger</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="px-2 py-1">Wk</th>
+                    <th className="px-2 py-1">Bench</th>
+                    <th className="px-2 py-1">OHP</th>
+                    <th className="px-2 py-1">Dead</th>
+                    <th className="px-2 py-1">Squat</th>
+                    <th className="px-2 py-1">Chins</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[1,2,3,4,5,6,7,8].map(wk => {
+                    const st = wendlerStagger[wk];
+                    const chin = getChinIntensity(wk);
+                    return (
+                      <tr key={wk} className={wk === currentWeek ? 'bg-blue-50' : ''}>
+                        <td className="px-2 py-1 font-medium text-center">{wk}</td>
+                        {['bench','ohp','deadlift','squat'].map(l => (
+                          <td key={l} className={`px-2 py-1 text-center ${st[l]===3?'bg-red-100 text-red-700 font-medium':st[l]===4?'bg-green-100 text-green-700':''}`}>
+                            {weekNames[st[l]]}
+                          </td>
+                        ))}
+                        <td className={`px-2 py-1 text-center ${chin.c}`}>{chin.t}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {['bench','squat','deadlift','ohp'].map(lift => (
+            <div key={lift} className="bg-white rounded-lg shadow p-4">
+              <h3 className="font-bold text-gray-700 capitalize mb-2">{lift === 'ohp' ? 'OHP' : lift} — TM: {settings.wendlerTM[lift]}</h3>
+              <table className="w-full text-xs">
+                <thead><tr className="bg-gray-100"><th className="px-2 py-1">Wk</th><th className="px-2 py-1">Phase</th><th className="px-2 py-1">Set 1</th><th className="px-2 py-1">Set 2</th><th className="px-2 py-1">Set 3</th></tr></thead>
+                <tbody>
+                  {[1,2,3,4,5,6,7,8].map(wk => {
+                    const ph = wendlerStagger[wk][lift];
+                    const pcts = wendlerPcts[ph];
+                    return (
+                      <tr key={wk} className={wk === currentWeek ? 'bg-blue-50' : ''}>
+                        <td className="px-2 py-1 text-center">{wk}</td>
+                        <td className={`px-2 py-1 text-center ${ph===3?'bg-red-100 text-red-700':ph===4?'bg-green-100 text-green-700':''}`}>{weekNames[ph]}</td>
+                        {pcts.map((s,i) => <td key={i} className="px-2 py-1 text-center">{calcWt(settings.wendlerTM[lift], s.p)}×{s.r}</td>)}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      );
+
+      // Exercise Input Component - prevents re-render issues
+      const ExerciseInput = ({ exerciseId, setIndex, initialValue, onSave }) => {
+        const [value, setValue] = useState(initialValue);
+        return (
+          <input 
+            type="text" 
+            placeholder={`Set ${setIndex + 1}`} 
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            onBlur={() => onSave(value)}
+            className="w-full px-2 py-1 text-sm border rounded"
+          />
+        );
+      };
+
+      const NotesInput = ({ exerciseId, initialValue, onSave }) => {
+        const [value, setValue] = useState(initialValue);
+        return (
+          <input 
+            type="text" 
+            placeholder="Notes..." 
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            onBlur={() => onSave(value)}
+            className="w-full mt-2 px-2 py-1 text-sm border rounded"
+          />
+        );
+      };
+
+      // WORKOUT TAB
+      const WorkoutTab = () => {
+        const exs = dayEx[activeDay];
+        const st = wendlerStagger[currentWeek];
+        const chin = getChinIntensity(currentWeek);
+
+        return (
+          <div className="p-4 space-y-4">
+            <div className="bg-white rounded-lg shadow p-3">
+              <label className="text-sm text-gray-600">Week</label>
+              <select value={currentWeek} onChange={e => setCurrentWeek(+e.target.value)} className="w-full mt-1 px-3 py-2 border rounded-md">
+                {[1,2,3,4,5,6,7,8].map(w => <option key={w} value={w}>Week {w}</option>)}
+              </select>
+            </div>
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="flex border-b overflow-x-auto">
+                {[1,2,3,4,5,6].map(d => (
+                  <button key={d} onClick={() => setActiveDay(d)}
+                    className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${activeDay===d?'bg-blue-50 text-blue-600 border-b-2 border-blue-500':'text-gray-500'}`}>
+                    D{d}
+                  </button>
+                ))}
+              </div>
+              <div className="p-4">
+                <h2 className="font-bold text-gray-800">{dayNames[activeDay]}</h2>
+                <p className="text-xs text-gray-500 mb-3">Week {currentWeek}</p>
+                {activeDay === 6 && <div className={`mb-3 p-2 rounded text-sm ${chin.c}`}><b>Chin-ups:</b> {chin.t}</div>}
+                <div className="space-y-3">
+                  {exs.map(ex => {
+                    const log = getLog(currentWeek, activeDay, ex.id);
+                    let tgt = '';
+                    if (ex.w) {
+                      const ph = st[ex.wl];
+                      tgt = wendlerPcts[ph].map((s,i) => `${calcWt(settings.wendlerTM[ex.wl], s.p)}×${s.r}`).join(' / ');
+                    } else if (ex.c) {
+                      tgt = `${settings.calisthenics[ex.ct][ex.st]} lbs`;
+                    }
+                    return (
+                      <div key={ex.id} className="border rounded-lg p-3">
+                        <div className="flex justify-between">
+                          <h3 className={`font-medium text-sm ${ex.w || ex.c ? 'text-blue-700' : 'text-gray-800'}`}>{ex.n}</h3>
+                          <span className="text-xs text-gray-400">{ex.s}×{ex.r}</span>
+                        </div>
+                        {tgt && <p className="text-xs text-blue-600 mt-1">Target: {tgt}</p>}
+                        <p className="text-xs text-gray-400">{ex.nt}</p>
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          {Array.from({length: ex.s}, (_,i) => (
+                            <ExerciseInput
+                              key={`${ex.id}-${i}`}
+                              exerciseId={ex.id}
+                              setIndex={i}
+                              initialValue={log.sets[i] || ''}
+                              onSave={(v) => logSet(currentWeek, activeDay, ex.id, i, v)}
+                            />
+                          ))}
+                        </div>
+                        <NotesInput
+                          key={`${ex.id}-notes`}
+                          exerciseId={ex.id}
+                          initialValue={log.notes || ''}
+                          onSave={(v) => logNotes(currentWeek, activeDay, ex.id, v)}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // HISTORY TAB
+      const HistoryTab = () => (
+        <div className="p-4">
+          <div className="bg-white rounded-lg shadow p-4">
+            <h2 className="font-bold text-gray-800 mb-4">Workout History</h2>
+            {[8,7,6,5,4,3,2,1].map(wk => {
+              const hasData = [1,2,3,4,5,6].some(d => workoutLogs[`${wk}-${d}`] && Object.keys(workoutLogs[`${wk}-${d}`]).length > 0);
+              if (!hasData) return null;
+              return (
+                <div key={wk} className="mb-4 pb-4 border-b">
+                  <h3 className="font-bold text-gray-700 mb-2">Week {wk}</h3>
+                  {[1,2,3,4,5,6].map(d => {
+                    const data = workoutLogs[`${wk}-${d}`];
+                    if (!data || Object.keys(data).length === 0) return null;
+                    return (
+                      <div key={d} className="ml-2 mb-2">
+                        <h4 className="text-sm font-medium text-gray-600">{dayNames[d]}</h4>
+                        {Object.entries(data).map(([id, v]) => {
+                          const ex = dayEx[d]?.find(e => e.id === id);
+                          if (!ex || !v.sets.filter(s=>s).length) return null;
+                          return <p key={id} className="text-xs text-gray-500 ml-2">{ex.n}: {v.sets.filter(s=>s).join(' / ')}{v.notes && ` (${v.notes})`}</p>;
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+            {Object.keys(workoutLogs).length === 0 && <p className="text-gray-400 text-center py-8">No history yet</p>}
+          </div>
+        </div>
+      );
+
+      // BODYWEIGHT TAB
+      const BodyweightTab = () => (
+        <div className="p-4 space-y-4">
+          <div className="bg-white rounded-lg shadow p-4">
+            <h2 className="font-bold text-gray-800 mb-3">Log Bodyweight</h2>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <input type="number" step="0.1" placeholder="Weight (lbs)" value={newWeight} onChange={e => setNewWeight(e.target.value)} className="px-3 py-2 border rounded-md"/>
+              <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="px-3 py-2 border rounded-md"/>
+            </div>
+            <button onClick={() => {
+              if (newWeight) {
+                const nl = [...bodyweightLogs, {weight: +newWeight, date: newDate}].sort((a,b) => new Date(a.date) - new Date(b.date));
+                saveBW(nl);
+                setNewWeight('');
+              }
+            }} className="w-full bg-blue-600 text-white py-2 rounded-md active:bg-blue-700">Log Weight</button>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h2 className="font-bold text-gray-800 mb-3">History</h2>
+            {bodyweightLogs.length > 0 ? (
+              [...bodyweightLogs].reverse().map((e, i) => (
+                <div key={i} className="flex justify-between py-2 border-b text-sm">
+                  <span className="text-gray-600">{e.date}</span>
+                  <span className="font-medium">{e.weight} lbs</span>
+                </div>
+              ))
+            ) : <p className="text-gray-400 text-center py-4">No entries</p>}
+          </div>
+          {bodyweightLogs.length >= 2 && (
+            <div className="bg-white rounded-lg shadow p-4">
+              <h2 className="font-bold text-gray-800 mb-2">Trend</h2>
+              <div className="text-sm space-y-1">
+                <div className="flex justify-between"><span>Start:</span><span>{bodyweightLogs[0].weight} lbs</span></div>
+                <div className="flex justify-between"><span>Current:</span><span>{bodyweightLogs[bodyweightLogs.length-1].weight} lbs</span></div>
+                <div className="flex justify-between border-t pt-1"><span>Change:</span>
+                  <span className={bodyweightLogs[bodyweightLogs.length-1].weight >= bodyweightLogs[0].weight ? 'text-green-600' : 'text-red-600'}>
+                    {(bodyweightLogs[bodyweightLogs.length-1].weight - bodyweightLogs[0].weight) >= 0 ? '+' : ''}
+                    {(bodyweightLogs[bodyweightLogs.length-1].weight - bodyweightLogs[0].weight).toFixed(1)} lbs
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+
+      return (
+        <div className="min-h-screen bg-gray-100">
+          <div className="bg-blue-700 text-white p-4 flex justify-between items-center">
+            <div>
+              <h1 className="text-lg font-bold">Jay's Workout Tracker</h1>
+              <p className="text-blue-200 text-xs">Staggered Wendler + Weighted Calisthenics</p>
+            </div>
+            {saveStatus && <span className="text-green-300 text-sm">{saveStatus}</span>}
+          </div>
+          <div className="pb-20">
+            {activeTab === 'setup' && <SetupTab />}
+            {activeTab === 'wendler' && <WendlerTab />}
+            {activeTab === 'workout' && <WorkoutTab />}
+            {activeTab === 'history' && <HistoryTab />}
+            {activeTab === 'bodyweight' && <BodyweightTab />}
+          </div>
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex safe-area-inset-bottom">
+            {[
+              {id: 'workout', l: 'Workout', i: '🏋️'},
+              {id: 'wendler', l: 'Wendler', i: '📊'},
+              {id: 'history', l: 'History', i: '📜'},
+              {id: 'bodyweight', l: 'Weight', i: '⚖️'},
+              {id: 'setup', l: 'Setup', i: '⚙️'}
+            ].map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
+                className={`flex-1 py-3 text-center ${activeTab === t.id ? 'text-blue-600 bg-blue-50' : 'text-gray-500'}`}>
+                <div className="text-xl">{t.i}</div>
+                <div className="text-xs">{t.l}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<WorkoutTracker />);
+  </script>
+</body>
+</html>
