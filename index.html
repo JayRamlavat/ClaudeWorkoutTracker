@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Jay's Tracker">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Jay's Tracker" />
   <title>Jay's Workout Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -34,42 +34,112 @@
       bodyweight: 155
     };
 
-    // ---- INPUTS (MOVED OUTSIDE COMPONENT TO PREVENT FOCUS DROPS) ----
-    const ExerciseInput = React.memo(({ placeholder, initialValue, onSave }) => {
-      const [value, setValue] = useState(initialValue);
+    // ---- HELPERS ----
+    const parseFirstNumber = (s) => {
+      if (s == null) return null;
+      const m = String(s).match(/-?\d+(\.\d+)?/);
+      return m ? Number(m[0]) : null;
+    };
 
+    const isFilled = (s) => (s ?? "").toString().trim().length > 0;
+
+    // ---- INPUTS (OUTSIDE COMPONENT TO PREVENT FOCUS DROPS) ----
+    const ExerciseInput = React.memo(({ placeholder, initialValue, lastValue, onSave }) => {
+      const [value, setValue] = useState(initialValue);
+      const isEditingRef = useRef(false);
+
+      // Only sync down from parent when NOT actively editing.
       useEffect(() => {
-        setValue(initialValue);
+        if (!isEditingRef.current) setValue(initialValue);
       }, [initialValue]);
 
+      const lastW = parseFirstNumber(lastValue);
+      const currW = parseFirstNumber(value);
+      const delta = (lastW != null && currW != null) ? (currW - lastW) : null;
+
+      const showDelta = delta != null && delta !== 0;
+      const deltaClass = !showDelta
+        ? "text-gray-400"
+        : delta > 0
+          ? "text-green-600"
+          : "text-red-600";
+
       return (
-        <input
-          type="text"
-          placeholder={placeholder}
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          onBlur={() => onSave(value)}
-          className="w-full px-2 py-1 text-sm border rounded"
-        />
+        <div className="relative">
+          <input
+            type="text"
+            placeholder={placeholder}
+            value={value}
+            onFocus={() => { isEditingRef.current = true; }}
+            onChange={e => setValue(e.target.value)}
+            onBlur={() => {
+              isEditingRef.current = false;
+              onSave(value);
+            }}
+            className="w-full px-2 py-1 text-sm border rounded pr-14"
+          />
+
+          {/* Tap-to-copy chip (shows only if lastValue exists) */}
+          {isFilled(lastValue) && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}  // prevents losing focus weirdness on mobile
+              onClick={() => {
+                setValue(lastValue);
+                onSave(lastValue);
+              }}
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-700 active:bg-gray-200"
+              title="Copy last set"
+            >
+              Copy
+            </button>
+          )}
+
+          {/* Delta hint */}
+          <div className={`mt-1 text-[11px] ${deltaClass}`}>
+            {showDelta ? (delta > 0 ? `+${delta}` : `${delta}`) : (isFilled(lastValue) ? " " : " ")}
+          </div>
+        </div>
       );
     });
 
-    const NotesInput = React.memo(({ placeholder, initialValue, onSave }) => {
+    const NotesInput = React.memo(({ placeholder, initialValue, lastValue, onSave, onCopyLast }) => {
       const [value, setValue] = useState(initialValue);
+      const isEditingRef = useRef(false);
 
       useEffect(() => {
-        setValue(initialValue);
+        if (!isEditingRef.current) setValue(initialValue);
       }, [initialValue]);
 
       return (
-        <input
-          type="text"
-          placeholder={placeholder || "Notes..."}
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          onBlur={() => onSave(value)}
-          className="w-full mt-2 px-2 py-1 text-sm border rounded"
-        />
+        <div className="relative">
+          <input
+            type="text"
+            placeholder={placeholder || "Notes..."}
+            value={value}
+            onFocus={() => { isEditingRef.current = true; }}
+            onChange={e => setValue(e.target.value)}
+            onBlur={() => {
+              isEditingRef.current = false;
+              onSave(value);
+            }}
+            className="w-full mt-2 px-2 py-1 text-sm border rounded pr-14"
+          />
+          {isFilled(lastValue) && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setValue(lastValue);
+                onSave(lastValue);
+              }}
+              className="absolute right-1 top-1/2 translate-y-1 text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-700 active:bg-gray-200"
+              title="Copy last notes"
+            >
+              Copy
+            </button>
+          )}
+        </div>
       );
     });
 
@@ -92,14 +162,14 @@
         try {
           const w = localStorage.getItem('jay-workout-logs');
           return w ? JSON.parse(w) : {};
-        } catch (e) { return {}; }
+        } catch(e) { return {}; }
       });
 
       const [bodyweightLogs, setBodyweightLogs] = useState(() => {
         try {
           const b = localStorage.getItem('jay-bodyweight-logs');
           return b ? JSON.parse(b) : [];
-        } catch (e) { return []; }
+        } catch(e) { return []; }
       });
 
       const [newWeight, setNewWeight] = useState('');
@@ -250,12 +320,12 @@
 
       const getLog = (w, d, ex) => workoutLogs[`${w}-${d}`]?.[ex] || { sets: [], notes: '' };
 
-      // Previous log for same day/exercise (walk backwards from currentWeek-1)
+      // Last session = same day, previous week (walk backward)
       const getPrevLog = (w, d, ex) => {
         for (let wk = w - 1; wk >= 1; wk--) {
           const log = workoutLogs[`${wk}-${d}`]?.[ex];
-          const hasSets = log?.sets?.some(s => (s ?? '').toString().trim() !== '');
-          const hasNotes = (log?.notes ?? '').toString().trim() !== '';
+          const hasSets = log?.sets?.some(s => isFilled(s));
+          const hasNotes = isFilled(log?.notes);
           if (hasSets || hasNotes) return { ...log, _week: wk };
         }
         return { sets: [], notes: '', _week: null };
@@ -270,9 +340,12 @@
               {['bench', 'squat', 'deadlift', 'ohp'].map(l => (
                 <div key={l}>
                   <label className="text-sm text-gray-600 capitalize">{l === 'ohp' ? 'OHP' : l}</label>
-                  <input type="number" value={settings.wendlerTM[l]}
+                  <input
+                    type="number"
+                    value={settings.wendlerTM[l]}
                     onChange={e => saveSettingsDebounced({ ...settings, wendlerTM: { ...settings.wendlerTM, [l]: +e.target.value } })}
-                    className="w-full mt-1 px-3 py-2 border rounded-md" />
+                    className="w-full mt-1 px-3 py-2 border rounded-md"
+                  />
                 </div>
               ))}
             </div>
@@ -281,19 +354,39 @@
             <h2 className="font-bold text-gray-800 mb-3">Calisthenics (lbs)</h2>
             {['dips', 'pullups', 'chinups'].map(ex => (
               <div key={ex} className="mb-3">
-                <label className="text-sm text-gray-600 capitalize">{ex === 'pullups' ? 'Pull-ups' : ex === 'chinups' ? 'Chin-ups' : 'Dips'}</label>
+                <label className="text-sm text-gray-600 capitalize">
+                  {ex === 'pullups' ? 'Pull-ups' : ex === 'chinups' ? 'Chin-ups' : 'Dips'}
+                </label>
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   <div>
                     <span className="text-xs text-gray-400">Top</span>
-                    <input type="number" value={settings.calisthenics[ex].top}
-                      onChange={e => saveSettingsDebounced({ ...settings, calisthenics: { ...settings.calisthenics, [ex]: { ...settings.calisthenics[ex], top: +e.target.value } } })}
-                      className="w-full px-3 py-2 border rounded-md" />
+                    <input
+                      type="number"
+                      value={settings.calisthenics[ex].top}
+                      onChange={e => saveSettingsDebounced({
+                        ...settings,
+                        calisthenics: {
+                          ...settings.calisthenics,
+                          [ex]: { ...settings.calisthenics[ex], top: +e.target.value }
+                        }
+                      })}
+                      className="w-full px-3 py-2 border rounded-md"
+                    />
                   </div>
                   <div>
                     <span className="text-xs text-gray-400">Back-off</span>
-                    <input type="number" value={settings.calisthenics[ex].backoff}
-                      onChange={e => saveSettingsDebounced({ ...settings, calisthenics: { ...settings.calisthenics, [ex]: { ...settings.calisthenics[ex], backoff: +e.target.value } } })}
-                      className="w-full px-3 py-2 border rounded-md" />
+                    <input
+                      type="number"
+                      value={settings.calisthenics[ex].backoff}
+                      onChange={e => saveSettingsDebounced({
+                        ...settings,
+                        calisthenics: {
+                          ...settings.calisthenics,
+                          [ex]: { ...settings.calisthenics[ex], backoff: +e.target.value }
+                        }
+                      })}
+                      className="w-full px-3 py-2 border rounded-md"
+                    />
                   </div>
                 </div>
               </div>
@@ -386,18 +479,15 @@
         const st = wendlerStagger[currentWeek];
         const chin = getChinIntensity(currentWeek);
 
-        const renderLastSessionLine = (prev, ex) => {
-          const setsText = (prev.sets || []).filter(s => (s ?? '').toString().trim() !== '').join(' / ');
+        const renderLastSessionBox = (prev, faded) => {
+          const setsText = (prev.sets || []).filter(s => isFilled(s)).join(' / ');
           const notesText = (prev.notes || '').toString().trim();
-
           if (!setsText && !notesText) return null;
 
           return (
-            <div className="mt-2 text-xs text-gray-500">
-              <span className="font-medium text-gray-600">
-                Last{prev._week ? ` (W${prev._week})` : ''}:
-              </span>{' '}
-              {setsText && <span>{setsText}</span>}
+            <div className={`mt-2 p-2 rounded bg-gray-50 border-l-4 border-gray-300 text-xs text-gray-600 ${faded ? "opacity-35" : "opacity-100"}`}>
+              <span className="font-medium">Last session{prev._week ? ` (W${prev._week})` : ""}:</span>
+              {setsText && <span className="ml-1">{setsText}</span>}
               {setsText && notesText && <span className="mx-1">•</span>}
               {notesText && <span className="italic">{notesText}</span>}
             </div>
@@ -423,9 +513,7 @@
                   <button
                     key={d}
                     onClick={() => setActiveDay(d)}
-                    className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${
-                      activeDay===d ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-500' : 'text-gray-500'
-                    }`}
+                    className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${activeDay===d?'bg-blue-50 text-blue-600 border-b-2 border-blue-500':'text-gray-500'}`}
                   >
                     D{d}
                   </button>
@@ -447,10 +535,12 @@
                     const log = getLog(currentWeek, activeDay, ex.id);
                     const prev = getPrevLog(currentWeek, activeDay, ex.id);
 
+                    const allFilled = Array.from({ length: ex.s }, (_, i) => isFilled(log.sets?.[i])).every(Boolean);
+
                     let tgt = '';
                     if (ex.w) {
                       const ph = st[ex.wl];
-                      tgt = wendlerPcts[ph].map((s) => `${calcWt(settings.wendlerTM[ex.wl], s.p)}×${s.r}`).join(' / ');
+                      tgt = wendlerPcts[ph].map(s => `${calcWt(settings.wendlerTM[ex.wl], s.p)}×${s.r}`).join(' / ');
                     } else if (ex.c) {
                       tgt = `${settings.calisthenics[ex.ct][ex.st]} lbs`;
                     }
@@ -458,22 +548,22 @@
                     return (
                       <div key={ex.id} className="border rounded-lg p-3">
                         <div className="flex justify-between">
-                          <h3 className={`font-medium text-sm ${ex.w || ex.c ? 'text-blue-700' : 'text-gray-800'}`}>
-                            {ex.n}
-                          </h3>
+                          <h3 className={`font-medium text-sm ${ex.w || ex.c ? 'text-blue-700' : 'text-gray-800'}`}>{ex.n}</h3>
                           <span className="text-xs text-gray-400">{ex.s}×{ex.r}</span>
                         </div>
 
                         {tgt && <p className="text-xs text-blue-600 mt-1">Target: {tgt}</p>}
                         <p className="text-xs text-gray-400">{ex.nt}</p>
 
-                        {renderLastSessionLine(prev, ex)}
+                        {/* Always-visible "Last session" box; fades once all sets are filled */}
+                        {renderLastSessionBox(prev, allFilled)}
 
                         <div className="grid grid-cols-3 gap-2 mt-2">
                           {Array.from({ length: ex.s }, (_, i) => (
                             <ExerciseInput
                               key={`${ex.id}-${i}`}
-                              initialValue={log.sets[i] || ''}
+                              initialValue={log.sets?.[i] || ''}
+                              lastValue={prev.sets?.[i] || ''}
                               placeholder={prev.sets?.[i] ? `Last: ${prev.sets[i]}` : `Set ${i + 1}`}
                               onSave={(v) => logSet(currentWeek, activeDay, ex.id, i, v)}
                             />
@@ -483,6 +573,7 @@
                         <NotesInput
                           key={`${ex.id}-notes`}
                           initialValue={log.notes || ''}
+                          lastValue={prev.notes || ''}
                           placeholder={prev.notes ? `Last: ${prev.notes}` : "Notes..."}
                           onSave={(v) => logNotes(currentWeek, activeDay, ex.id, v)}
                         />
@@ -490,6 +581,7 @@
                     );
                   })}
                 </div>
+
               </div>
             </div>
           </div>
@@ -515,12 +607,8 @@
                         <h4 className="text-sm font-medium text-gray-600">{dayNames[d]}</h4>
                         {Object.entries(data).map(([id, v]) => {
                           const ex = dayEx[d]?.find(e => e.id === id);
-                          if (!ex || !v.sets.filter(s => s).length) return null;
-                          return (
-                            <p key={id} className="text-xs text-gray-500 ml-2">
-                              {ex.n}: {v.sets.filter(s => s).join(' / ')}{v.notes && ` (${v.notes})`}
-                            </p>
-                          );
+                          if (!ex || !v.sets.filter(s=>s).length) return null;
+                          return <p key={id} className="text-xs text-gray-500 ml-2">{ex.n}: {v.sets.filter(s=>s).join(' / ')}{v.notes && ` (${v.notes})`}</p>;
                         })}
                       </div>
                     );
@@ -539,25 +627,17 @@
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-bold text-gray-800 mb-3">Log Bodyweight</h2>
             <div className="grid grid-cols-2 gap-3 mb-3">
-              <input type="number" step="0.1" placeholder="Weight (lbs)" value={newWeight}
-                onChange={e => setNewWeight(e.target.value)}
-                className="px-3 py-2 border rounded-md" />
-              <input type="date" value={newDate}
-                onChange={e => setNewDate(e.target.value)}
-                className="px-3 py-2 border rounded-md" />
+              <input type="number" step="0.1" placeholder="Weight (lbs)" value={newWeight} onChange={e => setNewWeight(e.target.value)} className="px-3 py-2 border rounded-md"/>
+              <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="px-3 py-2 border rounded-md"/>
             </div>
             <button onClick={() => {
               if (newWeight) {
-                const nl = [...bodyweightLogs, { weight: +newWeight, date: newDate }]
-                  .sort((a, b) => new Date(a.date) - new Date(b.date));
+                const nl = [...bodyweightLogs, {weight: +newWeight, date: newDate}].sort((a,b) => new Date(a.date) - new Date(b.date));
                 saveBW(nl);
                 setNewWeight('');
               }
-            }} className="w-full bg-blue-600 text-white py-2 rounded-md active:bg-blue-700">
-              Log Weight
-            </button>
+            }} className="w-full bg-blue-600 text-white py-2 rounded-md active:bg-blue-700">Log Weight</button>
           </div>
-
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-bold text-gray-800 mb-3">History</h2>
             {bodyweightLogs.length > 0 ? (
@@ -569,17 +649,16 @@
               ))
             ) : <p className="text-gray-400 text-center py-4">No entries</p>}
           </div>
-
           {bodyweightLogs.length >= 2 && (
             <div className="bg-white rounded-lg shadow p-4">
               <h2 className="font-bold text-gray-800 mb-2">Trend</h2>
               <div className="text-sm space-y-1">
                 <div className="flex justify-between"><span>Start:</span><span>{bodyweightLogs[0].weight} lbs</span></div>
-                <div className="flex justify-between"><span>Current:</span><span>{bodyweightLogs[bodyweightLogs.length - 1].weight} lbs</span></div>
+                <div className="flex justify-between"><span>Current:</span><span>{bodyweightLogs[bodyweightLogs.length-1].weight} lbs</span></div>
                 <div className="flex justify-between border-t pt-1"><span>Change:</span>
-                  <span className={bodyweightLogs[bodyweightLogs.length - 1].weight >= bodyweightLogs[0].weight ? 'text-green-600' : 'text-red-600'}>
-                    {(bodyweightLogs[bodyweightLogs.length - 1].weight - bodyweightLogs[0].weight) >= 0 ? '+' : ''}
-                    {(bodyweightLogs[bodyweightLogs.length - 1].weight - bodyweightLogs[0].weight).toFixed(1)} lbs
+                  <span className={bodyweightLogs[bodyweightLogs.length-1].weight >= bodyweightLogs[0].weight ? 'text-green-600' : 'text-red-600'}>
+                    {(bodyweightLogs[bodyweightLogs.length-1].weight - bodyweightLogs[0].weight) >= 0 ? '+' : ''}
+                    {(bodyweightLogs[bodyweightLogs.length-1].weight - bodyweightLogs[0].weight).toFixed(1)} lbs
                   </span>
                 </div>
               </div>
@@ -608,17 +687,14 @@
 
           <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex safe-area-inset-bottom">
             {[
-              { id: 'workout', l: 'Workout', i: '🏋️' },
-              { id: 'wendler', l: 'Wendler', i: '📊' },
-              { id: 'history', l: 'History', i: '📜' },
-              { id: 'bodyweight', l: 'Weight', i: '⚖️' },
-              { id: 'setup', l: 'Setup', i: '⚙️' }
+              {id: 'workout', l: 'Workout', i: '🏋️'},
+              {id: 'wendler', l: 'Wendler', i: '📊'},
+              {id: 'history', l: 'History', i: '📜'},
+              {id: 'bodyweight', l: 'Weight', i: '⚖️'},
+              {id: 'setup', l: 'Setup', i: '⚙️'}
             ].map(t => (
-              <button
-                key={t.id}
-                onClick={() => setActiveTab(t.id)}
-                className={`flex-1 py-3 text-center ${activeTab === t.id ? 'text-blue-600 bg-blue-50' : 'text-gray-500'}`}
-              >
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
+                className={`flex-1 py-3 text-center ${activeTab === t.id ? 'text-blue-600 bg-blue-50' : 'text-gray-500'}`}>
                 <div className="text-xl">{t.i}</div>
                 <div className="text-xs">{t.l}</div>
               </button>
