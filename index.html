@@ -107,12 +107,12 @@
       const minChars = 6; // minimum width for short entries like "135x5"
       const charCount = Math.max(minChars, displayText.length + 1);
       const hasClipboard = isFilled(lastValue);
-      const inputWidth = `calc(${charCount}ch + ${hasClipboard ? '2.5rem' : '1rem'})`;
+      const inputWidth = `calc(${charCount}ch + 1rem)`;
 
       return (
-        <div className="relative inline-flex flex-col mb-1">
+        <div className="inline-flex flex-col mb-1">
           <span className="text-[9px] text-stone-400 font-medium mb-0.5 ml-1">S{setIndex + 1}</span>
-          <div className="relative">
+          <div className="flex items-center gap-1">
             <input
               type="text"
               placeholder={placeholder}
@@ -127,8 +127,7 @@
               style={{ 
                 width: inputWidth,
                 minWidth: '5rem',
-                maxWidth: '100%',
-                paddingRight: hasClipboard ? '2rem' : '0.5rem'
+                maxWidth: '100%'
               }} 
             />
             {hasClipboard && (
@@ -136,7 +135,7 @@
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => { setValue(lastValue); onSave(lastValue); }}
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-stone-400 hover:text-stone-600 active:text-stone-800 active:bg-stone-200 rounded"
+                className="w-8 h-8 flex-shrink-0 flex items-center justify-center text-stone-400 hover:text-stone-600 active:text-stone-800 active:bg-stone-200 rounded-lg border border-stone-200 bg-stone-50"
                 title="Copy Last"
               >
                 📋
