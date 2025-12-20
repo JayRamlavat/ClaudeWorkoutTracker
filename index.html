@@ -58,7 +58,6 @@
       if (!local) return cloud;
       const cloudTime = cloud._updated || 0;
       const localTime = local._updated || 0;
-      // If cloud is significantly newer (1s), prefer it. Otherwise trust local to avoid overwriting active work.
       return cloudTime > localTime ? cloud : local;
     };
 
@@ -174,7 +173,11 @@
       
       const BASKET_NAME = "jays-workout-tracker";
       const [pantryId, setPantryId] = useState(() => localStorage.getItem('jay-pantry-id') || '');
-      const getCloudUrl = (id) => `https://getpantry.cloud/apiv1/pantry/${id}/basket/${BASKET_NAME}`;
+      
+      // FIXED: Added timestamp to prevent caching
+      const getCloudUrl = (id) => `https://getpantry.cloud/apiv1/pantry/${id}/basket/${BASKET_NAME}?_=${Date.now()}`;
+      // POST URL must not have query params for some APIs, but Pantry ignores them usually. safer to keep clean for POST.
+      const getPostUrl = (id) => `https://getpantry.cloud/apiv1/pantry/${id}/basket/${BASKET_NAME}`;
 
       // 2. DATA STATE
       const [settings, setSettings] = useState(() => {
@@ -255,7 +258,7 @@
           bw: s.bodyweightLogs
         };
 
-        fetch(getCloudUrl(pantryId), {
+        fetch(getPostUrl(pantryId), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(cleanPayload)
@@ -269,11 +272,15 @@
         if (!pantryId) return alert("Enter Pantry ID first");
         if (!confirm("This will OVERWRITE all local data with data from the Cloud. Are you sure?")) return;
         setSaveStatus('Pulling... ⏬');
+        
         try {
+          // Explicitly fetch with new timestamp to bust cache
           const res = await fetch(getCloudUrl(pantryId));
           if (!res.ok) throw new Error("Fetch failed");
           const data = await res.json();
           
+          console.log("Downloaded Data:", data); // Debugging
+
           if(data.settings) { setSettings(data.settings); localStorage.setItem('jay-settings', JSON.stringify(data.settings)); }
           if(data.logs) { setWorkoutLogs(data.logs); localStorage.setItem('jay-workout-logs', JSON.stringify(data.logs)); }
           if(data.completed) { setCompletedSessions(data.completed); localStorage.setItem('jay-completed-sessions', JSON.stringify(data.completed)); }
@@ -285,6 +292,7 @@
           window.location.reload(); // Reload to ensure clean state
         } catch (e) {
           alert("Failed to pull data. Check internet or ID.");
+          console.error(e);
           setSaveStatus('Error ❌');
         }
       };
@@ -457,10 +465,10 @@
       };
 
       const dayNames = {
-        1: 'Upper',
+        1: 'Upper Power',
         2: 'Lower + Core',
         3: 'Arms + Delts',
-        4: 'Chest + Back',
+        4: 'Upper Volume',
         5: 'Lower Maint',
         6: 'Arms + Delts'
       };
