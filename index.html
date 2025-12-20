@@ -269,33 +269,44 @@
       };
 
       const forcePull = async () => {
-        if (!pantryId) return alert("Enter Pantry ID first");
-        if (!confirm("This will OVERWRITE all local data with data from the Cloud. Are you sure?")) return;
-        setSaveStatus('Pulling... ⏬');
-        
-        try {
-          // Explicitly fetch with new timestamp to bust cache
-          const res = await fetch(getCloudUrl(pantryId));
-          if (!res.ok) throw new Error("Fetch failed");
-          const data = await res.json();
-          
-          console.log("Downloaded Data:", data); // Debugging
+  if (!pantryId) return alert("Enter Pantry ID first");
+  if (!confirm("This will OVERWRITE all local data with data from the Cloud. Are you sure?")) return;
+  setSaveStatus('Pulling... ⏬');
+  
+  try {
+    const res = await fetch(getCloudUrl(pantryId), {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    });
+    if (!res.ok) throw new Error("Fetch failed: " + res.status);
+    const data = await res.json();
+    
+    console.log("Downloaded Data:", data);
 
-          if(data.settings) { setSettings(data.settings); localStorage.setItem('jay-settings', JSON.stringify(data.settings)); }
-          if(data.logs) { setWorkoutLogs(data.logs); localStorage.setItem('jay-workout-logs', JSON.stringify(data.logs)); }
-          if(data.completed) { setCompletedSessions(data.completed); localStorage.setItem('jay-completed-sessions', JSON.stringify(data.completed)); }
-          if(data.bw) { setBodyweightLogs(data.bw); localStorage.setItem('jay-bodyweight-logs', JSON.stringify(data.bw)); }
-          
-          alert("Success! Local data has been updated from Cloud.");
-          setSaveStatus('Restored ✅');
-          setTimeout(() => setSaveStatus(''), 2000);
-          window.location.reload(); // Reload to ensure clean state
-        } catch (e) {
-          alert("Failed to pull data. Check internet or ID.");
-          console.error(e);
-          setSaveStatus('Error ❌');
-        }
-      };
+    // Clear everything first
+    localStorage.removeItem('jay-settings');
+    localStorage.removeItem('jay-workout-logs');
+    localStorage.removeItem('jay-completed-sessions');
+    localStorage.removeItem('jay-bodyweight-logs');
+
+    // Then write fresh
+    if(data.settings) localStorage.setItem('jay-settings', JSON.stringify(data.settings));
+    if(data.logs) localStorage.setItem('jay-workout-logs', JSON.stringify(data.logs));
+    if(data.completed) localStorage.setItem('jay-completed-sessions', JSON.stringify(data.completed));
+    if(data.bw) localStorage.setItem('jay-bodyweight-logs', JSON.stringify(data.bw));
+    
+    alert("Success! Reloading...");
+    window.location.reload();
+  } catch (e) {
+    alert("Failed to pull data: " + e.message);
+    console.error(e);
+    setSaveStatus('Error ❌');
+  }
+};
 
       // Heartbeat
       useEffect(() => {
@@ -947,8 +958,8 @@
           {/* HEADER */}
           <div className="bg-stone-900 text-stone-50 px-5 py-4 flex justify-between items-center shadow-md sticky top-0 z-50">
             <div>
-              <h1 className="text-base font-bold tracking-tight">Workout Tracker</h1>
-              <p className="text-stone-500 text-[10px] font-medium tracking-wide uppercase">WENDLER + STREETLIFTING</p>
+              <h1 className="text-base font-bold tracking-tight">Workout Tracker V2</h1>
+              <p className="text-stone-500 text-[10px] font-medium tracking-wide uppercase">WENDLER + STREETLIFTING + Hypertrophy</p>
             </div>
             <div className="flex items-center gap-2">
                {saveStatus && <span className="text-emerald-400 text-xs font-mono animate-pulse">{saveStatus}</span>}
