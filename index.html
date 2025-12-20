@@ -5,12 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Jay's Tracker" />
-  <title>Jay's Workout Tracker</title>
+  <meta name="apple-mobile-web-app-title" content="Tracker" />
+  <title>Workout Tracker</title>
+  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='20'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>W</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='20'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>W</text></svg>">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { -webkit-tap-highlight-color: transparent; }
-    input, select, textarea { font-size: 16px !important; }
+    body { -webkit-tap-highlight-color: transparent; background-color: #f5f5f4; }
+    /* Hide scrollbar for clean horizontal scrolling */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    input, select, textarea { font-size: 16px !important; outline: none !important; }
+    input:focus, textarea:focus, select:focus { border-color: #57534e !important; ring: 0 !important; }
   </style>
 </head>
 <body>
@@ -31,7 +39,8 @@
         pullups: { top: 80, backoff: 60 },
         chinups: { top: 90, backoff: 65 }
       },
-      bodyweight: 155
+      bodyweight: 155,
+      _updated: 0 // Timestamp for smart sync
     };
 
     // ---- HELPERS ----
@@ -43,15 +52,23 @@
 
     const isFilled = (s) => (s ?? "").toString().trim().length > 0;
 
-    // ---- SMART INPUTS ----
+    // Smart Merge Helper
+    const mergeData = (local, cloud) => {
+      if (!cloud) return local;
+      if (!local) return cloud;
+      // If cloud is newer, use cloud. Otherwise keep local.
+      const cloudTime = cloud._updated || 0;
+      const localTime = local._updated || 0;
+      return cloudTime > localTime ? cloud : local;
+    };
+
+    // ---- COMPONENTS ----
     const ExerciseInput = React.memo(({ placeholder, initialValue, lastValue, onSave }) => {
       const [value, setValue] = useState(initialValue);
       const isEditingRef = useRef(false);
       const textareaRef = useRef(null);
 
-      useEffect(() => {
-        if (!isEditingRef.current) setValue(initialValue);
-      }, [initialValue]);
+      useEffect(() => { if (!isEditingRef.current) setValue(initialValue); }, [initialValue]);
 
       useEffect(() => {
         if (textareaRef.current) {
@@ -64,7 +81,7 @@
       const currW = parseFirstNumber(value);
       const delta = (lastW != null && currW != null) ? (currW - lastW) : null;
       const showDelta = delta != null && delta !== 0;
-      const deltaClass = !showDelta ? "text-gray-400" : delta > 0 ? "text-green-600" : "text-red-600";
+      const deltaClass = !showDelta ? "text-stone-300" : delta > 0 ? "text-emerald-600" : "text-rose-600";
 
       return (
         <div className="relative">
@@ -79,24 +96,20 @@
               isEditingRef.current = false;
               onSave(value);
             }}
-            className="w-full px-2 py-1.5 text-sm border rounded resize-none overflow-hidden block min-h-[34px] leading-snug"
+            className="w-full px-3 py-2 text-sm border-2 border-stone-200 rounded-lg bg-stone-50 text-stone-800 resize-none overflow-hidden block min-h-[42px] leading-snug focus:border-stone-400 focus:bg-white transition-colors"
             style={{ paddingRight: isFilled(lastValue) ? '3rem' : '0.5rem' }} 
           />
           {isFilled(lastValue) && (
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                setValue(lastValue);
-                onSave(lastValue);
-              }}
-              className="absolute right-1 top-1 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 active:bg-gray-200 border"
-              title="Copy last set"
+              onClick={() => { setValue(lastValue); onSave(lastValue); }}
+              className="absolute right-1 top-1.5 text-[10px] px-2 py-1 rounded bg-stone-200 text-stone-600 font-bold active:bg-stone-300 uppercase tracking-wide"
             >
               Copy
             </button>
           )}
-          <div className={`mt-0.5 text-[10px] font-medium text-right pr-1 ${deltaClass}`}>
+          <div className={`mt-1 text-[10px] font-bold text-right pr-1 ${deltaClass}`}>
             {showDelta ? (delta > 0 ? `+${delta}` : `${delta}`) : (isFilled(lastValue) ? " " : " ")}
           </div>
         </div>
@@ -108,9 +121,7 @@
       const isEditingRef = useRef(false);
       const textareaRef = useRef(null);
 
-      useEffect(() => {
-        if (!isEditingRef.current) setValue(initialValue);
-      }, [initialValue]);
+      useEffect(() => { if (!isEditingRef.current) setValue(initialValue); }, [initialValue]);
 
       useEffect(() => {
         if (textareaRef.current) {
@@ -128,23 +139,16 @@
             value={value}
             onFocus={() => { isEditingRef.current = true; }}
             onChange={e => setValue(e.target.value)}
-            onBlur={() => {
-              isEditingRef.current = false;
-              onSave(value);
-            }}
-            className="w-full px-2 py-1.5 text-sm border rounded resize-none overflow-hidden block min-h-[34px] leading-snug"
+            onBlur={() => { isEditingRef.current = false; onSave(value); }}
+            className="w-full px-3 py-2 text-sm border-2 border-stone-100 rounded-lg text-stone-600 resize-none overflow-hidden block min-h-[40px] leading-snug bg-transparent focus:bg-white focus:border-stone-300 transition-colors placeholder-stone-400"
             style={{ paddingRight: isFilled(lastValue) ? '3rem' : '0.5rem' }}
           />
           {isFilled(lastValue) && (
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                setValue(lastValue);
-                onSave(lastValue);
-              }}
-              className="absolute right-1 top-1 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 active:bg-gray-200 border"
-              title="Copy last notes"
+              onClick={() => { setValue(lastValue); onSave(lastValue); }}
+              className="absolute right-1 top-1.5 text-[10px] px-2 py-1 rounded bg-stone-100 text-stone-500 font-bold active:bg-stone-200 uppercase tracking-wide"
             >
               Copy
             </button>
@@ -156,21 +160,16 @@
     // ---- MAIN APP ----
     const WorkoutTracker = () => {
       
-      // -- SMART STARTUP LOGIC --
       const getSmartStart = () => {
         try {
           const comp = JSON.parse(localStorage.getItem('jay-completed-sessions') || '{}');
           for (let w = 1; w <= 8; w++) {
             for (let d = 1; d <= 6; d++) {
-              if (!comp[`${w}-${d}`]) {
-                return { w, d };
-              }
+              if (!comp[`${w}-${d}`]) return { w, d };
             }
           }
           return { w: 1, d: 1 };
-        } catch (e) {
-          return { w: 1, d: 1 };
-        }
+        } catch (e) { return { w: 1, d: 1 }; }
       };
 
       const startLoc = useMemo(() => getSmartStart(), []);
@@ -183,44 +182,41 @@
       
       // CLOUD CONFIG
       const BASKET_NAME = "jays-workout-tracker";
-      const [pantryId, setPantryId] = useState(() => {
-        return localStorage.getItem('jay-pantry-id') || '';
-      });
+      const [pantryId, setPantryId] = useState(() => localStorage.getItem('jay-pantry-id') || '');
       const getCloudUrl = (id) => `https://getpantry.cloud/apiv1/pantry/${id}/basket/${BASKET_NAME}`;
 
       // 2. DATA STATE
       const [settings, setSettings] = useState(() => {
-        try {
-          const s = localStorage.getItem('jay-settings');
-          return s ? JSON.parse(s) : defaultSettings;
-        } catch (e) { return defaultSettings; }
+        try { return JSON.parse(localStorage.getItem('jay-settings')) || defaultSettings; } 
+        catch (e) { return defaultSettings; }
       });
 
       const [workoutLogs, setWorkoutLogs] = useState(() => {
-        try {
-          const w = localStorage.getItem('jay-workout-logs');
-          return w ? JSON.parse(w) : {};
-        } catch(e) { return {}; }
+        try { return JSON.parse(localStorage.getItem('jay-workout-logs')) || { _updated: 0 }; } 
+        catch(e) { return { _updated: 0 }; }
       });
 
       const [completedSessions, setCompletedSessions] = useState(() => {
-        try {
-          const c = localStorage.getItem('jay-completed-sessions');
-          return c ? JSON.parse(c) : {};
-        } catch(e) { return {}; }
+        try { return JSON.parse(localStorage.getItem('jay-completed-sessions')) || {}; } 
+        catch(e) { return {}; }
       });
 
       const [bodyweightLogs, setBodyweightLogs] = useState(() => {
-        try {
-          const b = localStorage.getItem('jay-bodyweight-logs');
-          return b ? JSON.parse(b) : [];
-        } catch(e) { return []; }
+        try { return JSON.parse(localStorage.getItem('jay-bodyweight-logs')) || []; } 
+        catch(e) { return []; }
       });
 
       const [newWeight, setNewWeight] = useState('');
       const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
 
       // 3. CLOUD SYNC LOGIC
+      // Ref for Heartbeat
+      const stateRef = useRef({ workoutLogs, settings, completedSessions, bodyweightLogs });
+      useEffect(() => {
+        stateRef.current = { workoutLogs, settings, completedSessions, bodyweightLogs };
+      }, [workoutLogs, settings, completedSessions, bodyweightLogs]);
+
+      // Load on Mount
       useEffect(() => {
         if (!pantryId) return;
         const loadCloudData = async () => {
@@ -230,35 +226,57 @@
             const data = await res.json();
             
             if (data.settings) {
-              setSettings(data.settings);
-              localStorage.setItem('jay-settings', JSON.stringify(data.settings));
+              const merged = mergeData(settings, data.settings);
+              setSettings(merged);
+              localStorage.setItem('jay-settings', JSON.stringify(merged));
             }
             if (data.logs) {
-              setWorkoutLogs(data.logs);
-              localStorage.setItem('jay-workout-logs', JSON.stringify(data.logs));
+              const merged = mergeData(workoutLogs, data.logs);
+              setWorkoutLogs(merged);
+              localStorage.setItem('jay-workout-logs', JSON.stringify(merged));
             }
             if (data.completed) {
-              setCompletedSessions(data.completed);
-              localStorage.setItem('jay-completed-sessions', JSON.stringify(data.completed));
+              // Union merge for completion
+              const merged = { ...completedSessions, ...data.completed };
+              setCompletedSessions(merged);
+              localStorage.setItem('jay-completed-sessions', JSON.stringify(merged));
             }
             if (data.bw) {
-              setBodyweightLogs(data.bw);
-              localStorage.setItem('jay-bodyweight-logs', JSON.stringify(data.bw));
+              const combined = [...bodyweightLogs, ...data.bw];
+              // Dedupe by date
+              const unique = Array.from(new Map(combined.map(item => [item.date, item])).values());
+              const sorted = unique.sort((a,b) => new Date(a.date) - new Date(b.date));
+              setBodyweightLogs(sorted);
+              localStorage.setItem('jay-bodyweight-logs', JSON.stringify(sorted));
             }
             setSaveStatus('Synced ☁️');
             setTimeout(() => setSaveStatus(''), 2000);
-          } catch (e) {
-            console.error("Cloud load error:", e);
-          }
+          } catch (e) { console.error("Cloud load error:", e); }
         };
         loadCloudData();
       }, [pantryId]);
 
+      // Heartbeat (30s)
+      useEffect(() => {
+        if (!pantryId) return;
+        const intervalId = setInterval(() => {
+          const s = stateRef.current;
+          // Staggered push
+          setTimeout(() => pushToCloud('settings', s.settings), 0);
+          setTimeout(() => pushToCloud('logs', s.workoutLogs), 500);
+          setTimeout(() => pushToCloud('completed', s.completedSessions), 1000);
+          setTimeout(() => pushToCloud('bw', s.bodyweightLogs), 1500);
+          setSaveStatus('Auto-Saving... ⚡');
+          setTimeout(() => setSaveStatus(''), 2000);
+        }, 30000);
+        return () => clearInterval(intervalId);
+      }, [pantryId]);
+
+      // CHANGED: Use PUT to merge, not overwrite
       const pushToCloud = (key, data) => {
         if (!pantryId) return;
         fetch(getCloudUrl(pantryId), {
-          // CHANGE THIS FROM 'POST' TO 'PUT'
-          method: 'PUT', 
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ [key]: data })
         }).then(() => {
@@ -267,21 +285,23 @@
         }).catch(() => setSaveStatus('Cloud Error ❌'));
       };
 
-      // 4. SAVE HANDLERS
+      // 4. SAVE HANDLERS (With Timestamps)
       const saveTimeout = useRef(null);
 
       const saveSettingsDebounced = useCallback((s) => {
-        setSettings(s);
-        localStorage.setItem('jay-settings', JSON.stringify(s));
+        const payload = { ...s, _updated: Date.now() };
+        setSettings(payload);
+        localStorage.setItem('jay-settings', JSON.stringify(payload));
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
-        saveTimeout.current = setTimeout(() => pushToCloud('settings', s), 1000);
+        saveTimeout.current = setTimeout(() => pushToCloud('settings', payload), 1000);
       }, [pantryId]);
 
       const saveLogsDebounced = useCallback((l) => {
-        setWorkoutLogs(l);
-        localStorage.setItem('jay-workout-logs', JSON.stringify(l));
+        const payload = { ...l, _updated: Date.now() };
+        setWorkoutLogs(payload);
+        localStorage.setItem('jay-workout-logs', JSON.stringify(payload));
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
-        saveTimeout.current = setTimeout(() => pushToCloud('logs', l), 1000);
+        saveTimeout.current = setTimeout(() => pushToCloud('logs', payload), 1000);
       }, [pantryId]);
 
       const saveCompletion = (c) => {
@@ -303,55 +323,38 @@
 
         let nextW = currentWeek;
         let nextD = activeDay + 1;
-
-        if (nextD > 6) {
-          nextD = 1;
-          nextW = currentWeek + 1;
-        }
-
-        if (nextW > 8) {
-          alert("Cycle Complete! Great job.");
-          return; 
-        }
+        if (nextD > 6) { nextD = 1; nextW = currentWeek + 1; }
+        if (nextW > 8) { alert("Cycle Complete! Great job."); return; }
 
         setCurrentWeek(nextW);
         setActiveDay(nextD);
         window.scrollTo(0,0);
       };
 
-      // ---- DELETE HELPERS (FIXED) ----
       const deleteDayEntry = (w, d) => {
-        if (!confirm(`Are you sure you want to delete logs for Week ${w}, Day ${d}?`)) return;
-        
+        if (!confirm(`Clear logs for Week ${w}, Day ${d}?`)) return;
         const key = `${w}-${d}`;
-        
-        // 1. Remove Logs
-        const newLogs = { ...workoutLogs };
+        const newLogs = { ...workoutLogs, _updated: Date.now() };
         delete newLogs[key];
         saveLogsDebounced(newLogs);
-
-        // 2. Remove Completion
+        
         const newComp = { ...completedSessions };
         delete newComp[key];
         saveCompletion(newComp);
       };
 
       const deleteWeekEntry = (w) => {
-        if (!confirm(`Are you sure you want to delete ALL logs for Week ${w}? This cannot be undone.`)) return;
-
-        const newLogs = { ...workoutLogs };
+        if (!confirm(`Delete ALL logs for Week ${w}?`)) return;
+        const newLogs = { ...workoutLogs, _updated: Date.now() };
         const newComp = { ...completedSessions };
-
         for (let d = 1; d <= 6; d++) {
           const key = `${w}-${d}`;
           delete newLogs[key];
           delete newComp[key];
         }
-
         saveLogsDebounced(newLogs);
         saveCompletion(newComp);
       };
-
 
       // 5. HELPER DATA
       const wendlerStagger = {
@@ -372,80 +375,80 @@
         4: [{ p: 0.40, r: '5' }, { p: 0.50, r: '5' }, { p: 0.60, r: '5' }]
       };
 
-      const weekNames = { 1: '5s', 2: '3s', 3: '5/3/1', 4: 'Deload' };
+      const weekNames = { 1: '5s', 2: '3s', 3: '531', 4: 'Dl' };
       const calcWt = (tm, p) => Math.round(tm * p / 5) * 5;
 
       const getChinIntensity = (w) => {
         const ohp = wendlerStagger[w].ohp;
-        if (ohp === 4) return { t: 'Push Hard', c: 'bg-green-100 text-green-700' };
-        if (ohp === 3) return { t: 'Cap RPE 8', c: 'bg-red-100 text-red-700' };
-        return { t: 'Normal', c: 'bg-gray-100 text-gray-700' };
+        if (ohp === 4) return { t: 'Push Hard', c: 'bg-emerald-100 text-emerald-800' };
+        if (ohp === 3) return { t: 'Cap RPE 8', c: 'bg-rose-100 text-rose-800' };
+        return { t: 'Normal', c: 'bg-stone-200 text-stone-700' };
       };
 
       const dayEx = {
         1: [
-          { id: 'bench', n: 'Bench Press (Wendler)', w: true, wl: 'bench', s: 3, r: 'cycle', nt: 'AMRAP last set' },
+          { id: 'bench', n: 'Bench Press', w: true, wl: 'bench', s: 3, r: 'cycle', nt: 'AMRAP last' },
           { id: 'd1_tbar', n: 'T-Bar Rows', s: 2, r: '4-6', nt: 'Full ROM' },
           { id: 'd1_inc', n: 'Incline DB Press', s: 2, r: '5-9', nt: 'Tucked elbows' },
           { id: 'd1_curl', n: 'EZ Bar Curls', s: 2, r: '6-10', nt: 'Short head' },
-          { id: 'd1_push', n: 'Seated Pushdown Machine', s: 3, r: '6-10', nt: 'Lateral/medial' },
+          { id: 'd1_push', n: 'Seated Pushdown', s: 3, r: '6-10', nt: 'Lat/medial' },
           { id: 'd1_lat', n: 'Lateral Raises', s: 2, r: '8-12', nt: 'Side delt' },
-          { id: 'd1_calf', n: 'Leg Press Calf Raises', s: 2, r: '12-15', nt: 'Full ROM' }
+          { id: 'd1_calf', n: 'Leg Press Calf', s: 2, r: '12-15', nt: 'Full ROM' }
         ],
         2: [
-          { id: 'dead', n: 'Deadlift (Wendler)', w: true, wl: 'deadlift', s: 3, r: 'cycle', nt: 'AMRAP last set' },
+          { id: 'dead', n: 'Deadlift', w: true, wl: 'deadlift', s: 3, r: 'cycle', nt: 'AMRAP last' },
           { id: 'd2_pause', n: 'Pause Squat', s: 2, r: '3-5', nt: '2s pause' },
-          { id: 'd2_calf', n: 'Seated Calf Raises', s: 3, r: '12-20', nt: 'Soleus' },
-          { id: 'd2_ham', n: 'Hamstring Curls', s: 1, r: '8-10', nt: 'Maintenance' },
-          { id: 'd2_rdl', n: 'Single-Leg RDL', s: 1, r: '8-10', nt: 'RIGHT first' },
-          { id: 'd2_rot', n: 'External Rotations', s: 2, r: '6-10', nt: 'Prehab' },
+          { id: 'd2_calf', n: 'Seated Calf', s: 3, r: '12-20', nt: 'Soleus' },
+          { id: 'd2_ham', n: 'Hamstring Curls', s: 1, r: '8-10', nt: 'Maint' },
+          { id: 'd2_rdl', n: 'Single-Leg RDL', s: 1, r: '8-10', nt: 'RIGHT 1st' },
+          { id: 'd2_rot', n: 'Ext Rotations', s: 2, r: '6-10', nt: 'Prehab' },
           { id: 'd2_drag', n: 'Dragon Flags', s: 2, r: '5-8', nt: 'Lower abs' }
         ],
         3: [
-          { id: 'dip_t', n: 'Weighted Dips (Top)', c: true, ct: 'dips', st: 'top', s: 1, r: '3-5', nt: 'Near failure' },
-          { id: 'dip_b', n: 'Weighted Dips (Back-off)', c: true, ct: 'dips', st: 'backoff', s: 2, r: '6-8', nt: '~75% top' },
-          { id: 'd3_preach', n: 'Preacher Curl Machine', s: 3, r: '6-10', nt: 'Short head' },
-          { id: 'd3_oh', n: 'OH Cable Extensions', s: 3, r: '10-15', nt: 'Long head' },
-          { id: 'd3_inc', n: 'Incline DB Curls', s: 3, r: '8-12', nt: 'Long head' },
-          { id: 'd3_lat', n: 'Cable Lateral Raises', s: 3, r: '10-12', nt: 'Side delt' },
-          { id: 'd3_rev', n: 'Reverse Pec Deck', s: 3, r: '8-12', nt: 'Rear delt' }
+          { id: 'dip_t', n: 'Dips (Top)', c: true, ct: 'dips', st: 'top', s: 1, r: '3-5', nt: 'RPE 9' },
+          { id: 'dip_b', n: 'Dips (Back)', c: true, ct: 'dips', st: 'backoff', s: 2, r: '6-8', nt: '~75%' },
+          { id: 'd3_preach', n: 'Preacher Curl', s: 3, r: '6-10', nt: 'Short head' },
+          { id: 'd3_oh', n: 'OH Cable Ext', s: 3, r: '10-15', nt: 'Long head' },
+          { id: 'd3_inc', n: 'Inc DB Curls', s: 3, r: '8-12', nt: 'Long head' },
+          { id: 'd3_lat', n: 'Cable Laterals', s: 3, r: '10-12', nt: 'Side delt' },
+          { id: 'd3_rev', n: 'Rev Pec Deck', s: 3, r: '8-12', nt: 'Rear delt' }
         ],
         4: [
-          { id: 'pull_t', n: 'Weighted Pull-ups (Top)', c: true, ct: 'pullups', st: 'top', s: 1, r: '3-5', nt: 'Near failure' },
-          { id: 'pull_b', n: 'Weighted Pull-ups (Back-off)', c: true, ct: 'pullups', st: 'backoff', s: 2, r: '6-8', nt: '~75% top' },
+          { id: 'pull_t', n: 'Pull-ups (Top)', c: true, ct: 'pullups', st: 'top', s: 1, r: '3-5', nt: 'RPE 9' },
+          { id: 'pull_b', n: 'Pull-ups (Back)', c: true, ct: 'pullups', st: 'backoff', s: 2, r: '6-8', nt: '~75%' },
           { id: 'd4_flat', n: 'Flat DB Press', s: 2, r: '4-8', nt: '45° elbows' },
-          { id: 'd4_row', n: 'Barbell Row', s: 2, r: '5-8', nt: 'Pause reps' },
-          { id: 'd4_inc', n: 'Incline Press Machine', s: 2, r: '6-10', nt: 'Chest' },
-          { id: 'd4_pec', n: 'Pec Deck', s: 2, r: '8-11', nt: 'Isolation' },
-          { id: 'd4_ql', n: 'QL Extensions', s: 1, r: '12-15', nt: 'LEFT first' }
+          { id: 'd4_row', n: 'BB Row', s: 2, r: '5-8', nt: 'Pause' },
+          { id: 'd4_inc', n: 'Inc Press Mach', s: 2, r: '6-10', nt: 'Chest' },
+          { id: 'd4_pec', n: 'Pec Deck', s: 2, r: '8-11', nt: 'Iso' },
+          { id: 'd4_ql', n: 'QL Ext', s: 1, r: '12-15', nt: 'LEFT 1st' }
         ],
         5: [
-          { id: 'squat', n: 'Back Squat (Wendler)', w: true, wl: 'squat', s: 3, r: 'cycle', nt: 'AMRAP last set' },
-          { id: 'd5_rdl', n: 'Romanian Deadlift', s: 2, r: '3-6', nt: 'Posterior chain' },
-          { id: 'd5_ext', n: 'Leg Extensions', s: 2, r: '6-10', nt: 'Quad maintenance' },
-          { id: 'd5_calf', n: 'Standing Calf Raises', s: 3, r: '8-15', nt: 'Gastrocnemius' },
+          { id: 'squat', n: 'Squat', w: true, wl: 'squat', s: 3, r: 'cycle', nt: 'AMRAP last' },
+          { id: 'd5_rdl', n: 'RDL', s: 2, r: '3-6', nt: 'Post chain' },
+          { id: 'd5_ext', n: 'Leg Ext', s: 2, r: '6-10', nt: 'Quad Maint' },
+          { id: 'd5_calf', n: 'Stand Calf', s: 3, r: '8-15', nt: 'Gastroc' },
           { id: 'd5_leg', n: 'Leg Raises', s: 2, r: '6-10', nt: 'Lower abs' },
           { id: 'd5_abs', n: 'Abs Machine', s: 2, r: '6-10', nt: 'Core' }
         ],
         6: [
-          { id: 'chin_t', n: 'Weighted Chin-ups (Top)', c: true, ct: 'chinups', st: 'top', s: 1, r: '3-5', nt: 'See intensity' },
-          { id: 'chin_b', n: 'Weighted Chin-ups (Back-off)', c: true, ct: 'chinups', st: 'backoff', s: 2, r: '6-8', nt: '~75% top' },
-          { id: 'ohp', n: 'OHP (Wendler)', w: true, wl: 'ohp', s: 3, r: 'cycle', nt: 'AMRAP last set' },
-          { id: 'd6_vbar', n: 'V-Bar Pushdowns', s: 3, r: '6-10', nt: 'Lateral/medial' },
-          { id: 'd6_bay', n: 'Bayesian Curls', s: 3, r: '10-15', nt: 'Long head' },
-          { id: 'd6_spider', n: 'Spider Curls', s: 2, r: '8-12', nt: 'Short head' },
-          { id: 'd6_lat', n: 'Machine Lateral Raises', s: 2, r: '6-10', nt: 'Side delt' },
+          { id: 'chin_t', n: 'Chins (Top)', c: true, ct: 'chinups', st: 'top', s: 1, r: '3-5', nt: 'Check Int' },
+          { id: 'chin_b', n: 'Chins (Back)', c: true, ct: 'chinups', st: 'backoff', s: 2, r: '6-8', nt: '~75%' },
+          { id: 'ohp', n: 'OHP', w: true, wl: 'ohp', s: 3, r: 'cycle', nt: 'AMRAP last' },
+          { id: 'd6_vbar', n: 'V-Bar Push', s: 3, r: '6-10', nt: 'Lat/medial' },
+          { id: 'd6_bay', n: 'Bayesian Curl', s: 3, r: '10-15', nt: 'Long head' },
+          { id: 'd6_spider', n: 'Spider Curl', s: 2, r: '8-12', nt: 'Short head' },
+          { id: 'd6_lat', n: 'Mach Lateral', s: 2, r: '6-10', nt: 'Side delt' },
           { id: 'd6_face', n: 'Face Pulls', s: 2, r: '12-15', nt: 'Rear delt' }
         ]
       };
 
       const dayNames = {
-        1: 'D1: Chest+Back+Arms',
-        2: 'D2: Lower+Core',
-        3: 'D3: Arms+Delts',
-        4: 'D4: Chest+Back Vol',
-        5: 'D5: Lower Maint',
-        6: 'D6: Arms+Delts'
+        1: 'Upper Power',
+        2: 'Lower + Core',
+        3: 'Arms + Delts',
+        4: 'Upper Volume',
+        5: 'Lower Maint',
+        6: 'Arms + Delts'
       };
 
       const logSet = (w, d, ex, i, v) => {
@@ -480,14 +483,10 @@
 
       // ---- RENDER FUNCTIONS ----
       const renderSetupTab = () => (
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-6 max-w-md mx-auto">
           
-          {/* CLOUD SYNC SECTION */}
-          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
-            <h2 className="font-bold text-gray-800 mb-2">Cloud Sync Setup</h2>
-            <p className="text-xs text-gray-500 mb-2">
-              To sync across devices, create a free bucket at <a href="https://getpantry.cloud" target="_blank" className="text-blue-600 underline">getpantry.cloud</a> and paste your ID here.
-            </p>
+          <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+            <h2 className="font-bold text-stone-800 mb-3 text-lg tracking-tight">Cloud Sync</h2>
             <input
               type="text"
               placeholder="Paste Pantry ID here..."
@@ -497,170 +496,148 @@
                 setPantryId(newId);
                 localStorage.setItem('jay-pantry-id', newId);
               }}
-              className="w-full px-3 py-2 border rounded-md text-sm font-mono"
+              className="w-full px-4 py-3 border border-stone-300 rounded-lg text-sm font-mono bg-stone-50 focus:bg-white transition-all"
             />
-            {pantryId && <p className="text-xs text-green-600 mt-2 font-bold">Sync Active ✓</p>}
+            
+            {/* NEW FORCE PUSH SECTION */}
+            <div className="flex gap-3 mt-4 items-center">
+               {pantryId ? 
+                 <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Active</span> : 
+                 <span className="text-xs text-stone-400">Not connected</span>
+               }
+               
+               <button
+                 onClick={() => {
+                   if(!pantryId) return alert("Enter Pantry ID first");
+                   pushToCloud('settings', settings);
+                   pushToCloud('logs', workoutLogs);
+                   pushToCloud('completed', completedSessions);
+                   pushToCloud('bw', bodyweightLogs);
+                   alert('Force Push Initiated. Check cloud in a moment.');
+                 }}
+                 className="flex-1 bg-stone-800 text-stone-100 text-xs font-bold px-4 py-3 rounded-lg active:scale-95 transition-transform"
+               >
+                 Force Push All Data ☁️
+               </button>
+            </div>
+            <p className="text-[10px] text-stone-400 mt-2 leading-relaxed">
+              Use "Force Push" if your cloud file is empty or missing data. It will merge local data to the cloud.
+            </p>
           </div>
 
-          {/* MANUAL BACKUP SECTION */}
-          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-gray-500">
-            <h2 className="font-bold text-gray-800 mb-2">Data Backup</h2>
-            <div className="grid grid-cols-2 gap-3">
-              <button
+          <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+            <h2 className="font-bold text-stone-800 mb-4 text-lg tracking-tight">Wendler TMs (lbs)</h2>
+            <div className="grid grid-cols-2 gap-4">
+              {['bench', 'squat', 'deadlift', 'ohp'].map(l => (
+                <div key={l}>
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wide mb-1 block">{l}</label>
+                  <input
+                    type="number"
+                    value={settings.wendlerTM[l]}
+                    onChange={e => saveSettingsDebounced({ ...settings, wendlerTM: { ...settings.wendlerTM, [l]: +e.target.value } })}
+                    className="w-full px-3 py-2 border border-stone-300 rounded-lg bg-stone-50 focus:bg-white"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+            <h2 className="font-bold text-stone-800 mb-4 text-lg tracking-tight">Streetlifting (lbs)</h2>
+            {['dips', 'pullups', 'chinups'].map(ex => (
+              <div key={ex} className="mb-4 last:mb-0">
+                <div className="flex justify-between items-baseline mb-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wide">{ex}</label>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="Top"
+                      value={settings.calisthenics[ex].top}
+                      onChange={e => saveSettingsDebounced({
+                        ...settings,
+                        calisthenics: { ...settings.calisthenics, [ex]: { ...settings.calisthenics[ex], top: +e.target.value } }
+                      })}
+                      className="w-full px-3 py-2 border border-stone-300 rounded-lg bg-stone-50 focus:bg-white text-center"
+                    />
+                    <div className="text-[9px] text-center text-stone-400 mt-1">TOP</div>
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="Backoff"
+                      value={settings.calisthenics[ex].backoff}
+                      onChange={e => saveSettingsDebounced({
+                        ...settings,
+                        calisthenics: { ...settings.calisthenics, [ex]: { ...settings.calisthenics[ex], backoff: +e.target.value } }
+                      })}
+                      className="w-full px-3 py-2 border border-stone-300 rounded-lg bg-stone-50 focus:bg-white text-center"
+                    />
+                    <div className="text-[9px] text-center text-stone-400 mt-1">BACK</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="text-center pb-8">
+             <button
                 onClick={() => {
                   const data = { settings, logs: workoutLogs, bw: bodyweightLogs, completed: completedSessions };
                   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = `jay-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
+                  a.download = `backup-${new Date().toISOString().split('T')[0]}.json`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);
                 }}
-                className="w-full bg-green-600 text-white py-2 rounded-md text-sm font-medium active:bg-green-700"
+                className="text-stone-400 text-xs underline decoration-stone-300 hover:text-stone-600"
               >
-                Export Backup
+                Download Manual Backup
               </button>
-
-              <div className="relative">
-                <input
-                  type="file"
-                  accept=".json"
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                      try {
-                        const data = JSON.parse(event.target.result);
-                        if (data.settings) {
-                          setSettings(data.settings);
-                          localStorage.setItem('jay-settings', JSON.stringify(data.settings));
-                        }
-                        if (data.logs) {
-                          setWorkoutLogs(data.logs);
-                          localStorage.setItem('jay-workout-logs', JSON.stringify(data.logs));
-                        }
-                        if (data.completed) {
-                          setCompletedSessions(data.completed);
-                          localStorage.setItem('jay-completed-sessions', JSON.stringify(data.completed));
-                        }
-                        if (data.bw) {
-                          setBodyweightLogs(data.bw);
-                          localStorage.setItem('jay-bodyweight-logs', JSON.stringify(data.bw));
-                        }
-                        alert('Data restored! Refreshing...');
-                        window.location.reload();
-                      } catch (err) {
-                        alert('Invalid backup file');
-                      }
-                    };
-                    reader.readAsText(file);
-                  }}
-                />
-                <button className="w-full bg-gray-600 text-white py-2 rounded-md text-sm font-medium pointer-events-none">
-                  Import Backup
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="font-bold text-gray-800 mb-3">Wendler TMs (lbs)</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {['bench', 'squat', 'deadlift', 'ohp'].map(l => (
-                <div key={l}>
-                  <label className="text-sm text-gray-600 capitalize">{l === 'ohp' ? 'OHP' : l}</label>
-                  <input
-                    type="number"
-                    value={settings.wendlerTM[l]}
-                    onChange={e => saveSettingsDebounced({ ...settings, wendlerTM: { ...settings.wendlerTM, [l]: +e.target.value } })}
-                    className="w-full mt-1 px-3 py-2 border rounded-md"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="font-bold text-gray-800 mb-3">Calisthenics (lbs)</h2>
-            {['dips', 'pullups', 'chinups'].map(ex => (
-              <div key={ex} className="mb-3">
-                <label className="text-sm text-gray-600 capitalize">
-                  {ex === 'pullups' ? 'Pull-ups' : ex === 'chinups' ? 'Chin-ups' : 'Dips'}
-                </label>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <div>
-                    <span className="text-xs text-gray-400">Top</span>
-                    <input
-                      type="number"
-                      value={settings.calisthenics[ex].top}
-                      onChange={e => saveSettingsDebounced({
-                        ...settings,
-                        calisthenics: {
-                          ...settings.calisthenics,
-                          [ex]: { ...settings.calisthenics[ex], top: +e.target.value }
-                        }
-                      })}
-                      className="w-full px-3 py-2 border rounded-md"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-400">Back-off</span>
-                    <input
-                      type="number"
-                      value={settings.calisthenics[ex].backoff}
-                      onChange={e => saveSettingsDebounced({
-                        ...settings,
-                        calisthenics: {
-                          ...settings.calisthenics,
-                          [ex]: { ...settings.calisthenics[ex], backoff: +e.target.value }
-                        }
-                      })}
-                      className="w-full px-3 py-2 border rounded-md"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       );
 
       const renderWendlerTab = () => (
-        <div className="p-4 space-y-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="font-bold text-gray-800 mb-3">8-Week Stagger</h2>
-            <div className="overflow-x-auto">
+        <div className="p-4 space-y-4 max-w-md mx-auto">
+          <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-4 overflow-hidden">
+            <h2 className="font-bold text-stone-800 mb-3 text-lg">Cycle Overview</h2>
+            <div className="overflow-x-auto no-scrollbar">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-gray-100">
-                    <th className="px-2 py-1">Wk</th>
-                    <th className="px-2 py-1">Bench</th>
-                    <th className="px-2 py-1">OHP</th>
-                    <th className="px-2 py-1">Dead</th>
-                    <th className="px-2 py-1">Squat</th>
-                    <th className="px-2 py-1">Chins</th>
+                  <tr className="text-stone-400 border-b border-stone-100">
+                    <th className="pb-2 text-left">Wk</th>
+                    <th className="pb-2">Bench</th>
+                    <th className="pb-2">OHP</th>
+                    <th className="pb-2">Dead</th>
+                    <th className="pb-2">Squat</th>
+                    <th className="pb-2">Chin</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-stone-50">
                   {[1,2,3,4,5,6,7,8].map(wk => {
                     const st = wendlerStagger[wk];
                     const chin = getChinIntensity(wk);
                     const isWkComplete = [1,2,3,4,5,6].every(d => completedSessions[`${wk}-${d}`]);
+                    const isCurrent = wk === currentWeek;
                     return (
-                      <tr key={wk} className={wk === currentWeek ? 'bg-blue-50' : ''}>
-                        <td className="px-2 py-1 font-medium text-center relative">
+                      <tr key={wk} className={isCurrent ? 'bg-stone-100' : ''}>
+                        <td className="py-2.5 font-bold text-stone-700 relative pl-1">
                           {wk}
-                          {isWkComplete && <span className="absolute top-0 right-0 text-[8px] text-green-600">✓</span>}
+                          {isWkComplete && <span className="absolute top-1 left-3 text-[8px] text-emerald-500">●</span>}
                         </td>
                         {['bench','ohp','deadlift','squat'].map(l => (
-                          <td key={l} className={`px-2 py-1 text-center ${st[l]===3?'bg-red-100 text-red-700 font-medium':st[l]===4?'bg-green-100 text-green-700':''}`}>
+                          <td key={l} className={`py-2 text-center font-medium ${st[l]===3?'text-rose-600':st[l]===4?'text-emerald-600':'text-stone-400'}`}>
                             {weekNames[st[l]]}
                           </td>
                         ))}
-                        <td className={`px-2 py-1 text-center ${chin.c}`}>{chin.t}</td>
+                        <td className={`py-2 text-center text-[9px] font-bold tracking-tight px-1`}>
+                           <span className={`px-1.5 py-0.5 rounded ${chin.c.replace('bg-', 'bg-opacity-50 ')}`}>{chin.t}</span>
+                        </td>
                       </tr>
                     );
                   })}
@@ -670,40 +647,40 @@
           </div>
 
           {['bench','squat','deadlift','ohp'].map(lift => (
-            <div key={lift} className="bg-white rounded-lg shadow p-4">
-              <h3 className="font-bold text-gray-700 capitalize mb-2">
-                {lift === 'ohp' ? 'OHP' : lift} — TM: {settings.wendlerTM[lift]}
-              </h3>
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="px-2 py-1">Wk</th>
-                    <th className="px-2 py-1">Phase</th>
-                    <th className="px-2 py-1">Set 1</th>
-                    <th className="px-2 py-1">Set 2</th>
-                    <th className="px-2 py-1">Set 3</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[1,2,3,4,5,6,7,8].map(wk => {
-                    const ph = wendlerStagger[wk][lift];
-                    const pcts = wendlerPcts[ph];
-                    return (
-                      <tr key={wk} className={wk === currentWeek ? 'bg-blue-50' : ''}>
-                        <td className="px-2 py-1 text-center">{wk}</td>
-                        <td className={`px-2 py-1 text-center ${ph===3?'bg-red-100 text-red-700':ph===4?'bg-green-100 text-green-700':''}`}>
-                          {weekNames[ph]}
-                        </td>
-                        {pcts.map((s,i) => (
-                          <td key={i} className="px-2 py-1 text-center">
-                            {calcWt(settings.wendlerTM[lift], s.p)}×{s.r}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div key={lift} className="bg-white rounded-xl shadow-sm border border-stone-200 p-4">
+              <div className="flex justify-between items-center mb-3">
+                 <h3 className="font-bold text-stone-800 capitalize text-lg">{lift}</h3>
+                 <span className="text-xs bg-stone-100 px-2 py-1 rounded text-stone-500 font-mono">TM: {settings.wendlerTM[lift]}</span>
+              </div>
+              <div className="overflow-x-auto no-scrollbar">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-stone-400 border-b border-stone-100">
+                      <th className="pb-2 text-left pl-2">Week</th>
+                      <th className="pb-2 text-center">Set 1</th>
+                      <th className="pb-2 text-center">Set 2</th>
+                      <th className="pb-2 text-center">Set 3</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-50">
+                    {[1,2,3,4,5,6,7,8].map(wk => {
+                      const ph = wendlerStagger[wk][lift];
+                      const pcts = wendlerPcts[ph];
+                      const isCurrent = wk === currentWeek;
+                      return (
+                        <tr key={wk} className={isCurrent ? 'bg-stone-50' : ''}>
+                          <td className="py-2 pl-2 font-medium text-stone-600">{wk} <span className="text-stone-300 text-[9px] ml-1">{weekNames[ph]}</span></td>
+                          {pcts.map((s,i) => (
+                            <td key={i} className={`py-2 text-center ${i===2 ? 'font-bold text-stone-800' : 'text-stone-500'}`}>
+                              {calcWt(settings.wendlerTM[lift], s.p)}<span className="text-[9px] text-stone-300">x{s.r}</span>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ))}
         </div>
@@ -720,11 +697,10 @@
           if (!setsText && !notesText) return null;
 
           return (
-            <div className={`mt-2 p-2 rounded bg-gray-50 border-l-4 border-gray-300 text-xs text-gray-600 ${faded ? "opacity-35" : "opacity-100"}`}>
-              <span className="font-medium">Last session{prev._week ? ` (W${prev._week})` : ""}:</span>
-              {setsText && <span className="ml-1">{setsText}</span>}
-              {setsText && notesText && <span className="mx-1">•</span>}
-              {notesText && <span className="italic">{notesText}</span>}
+            <div className={`mt-3 p-2.5 rounded-lg bg-stone-50 border border-stone-100 text-xs text-stone-500 ${faded ? "opacity-50" : "opacity-100"}`}>
+              <span className="font-bold text-stone-400 uppercase text-[9px] tracking-wide mr-2">History</span>
+              {setsText && <span className="font-mono text-stone-700">{setsText}</span>}
+              {notesText && <div className="mt-1 italic text-stone-400 border-t border-stone-100 pt-1">{notesText}</div>}
             </div>
           );
         };
@@ -732,186 +708,173 @@
         const isCompleted = completedSessions[`${currentWeek}-${activeDay}`];
 
         return (
-          <div className="p-4 space-y-4">
-            <div className="bg-white rounded-lg shadow p-3">
-              <label className="text-sm text-gray-600">Week</label>
-              <select
-                value={currentWeek}
-                onChange={e => setCurrentWeek(+e.target.value)}
-                className="w-full mt-1 px-3 py-2 border rounded-md"
-              >
-                {[1,2,3,4,5,6,7,8].map(w => <option key={w} value={w}>Week {w}</option>)}
-              </select>
-            </div>
-
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="flex border-b overflow-x-auto">
+          <div className="p-4 space-y-5 max-w-md mx-auto">
+            
+            {/* Week/Day Selector */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+               <div className="p-3 border-b border-stone-100 flex justify-between items-center">
+                  <div className="relative">
+                    <select
+                      value={currentWeek}
+                      onChange={e => setCurrentWeek(+e.target.value)}
+                      className="appearance-none bg-transparent font-bold text-stone-800 pr-6 outline-none"
+                    >
+                      {[1,2,3,4,5,6,7,8].map(w => <option key={w} value={w}>Week {w}</option>)}
+                    </select>
+                    <span className="absolute right-0 top-1 text-[10px] text-stone-400">▼</span>
+                  </div>
+                  {isCompleted && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">DONE</span>}
+               </div>
+               <div className="flex overflow-x-auto no-scrollbar bg-stone-50">
                 {[1,2,3,4,5,6].map(d => (
                   <button
                     key={d}
                     onClick={() => setActiveDay(d)}
-                    className={`relative px-4 py-2 text-sm font-medium whitespace-nowrap ${activeDay===d?'bg-blue-50 text-blue-600 border-b-2 border-blue-500':'text-gray-500'}`}
+                    className={`flex-1 py-3 text-xs font-bold whitespace-nowrap px-4 border-r border-stone-100 last:border-0 ${activeDay===d?'bg-white text-stone-900 shadow-sm':'text-stone-400 hover:text-stone-600'}`}
                   >
                     D{d}
-                    {completedSessions[`${currentWeek}-${d}`] && <span className="ml-1 text-[10px] text-green-500">✓</span>}
+                    {completedSessions[`${currentWeek}-${d}`] && <span className="ml-1 text-[8px] text-emerald-500">●</span>}
                   </button>
                 ))}
               </div>
-
-              <div className="p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <div>
-                    <h2 className="font-bold text-gray-800">{dayNames[activeDay]}</h2>
-                    <p className="text-xs text-gray-500">Week {currentWeek}</p>
-                  </div>
-                  {isCompleted && (
-                    <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-bold border border-green-200">
-                      COMPLETED
-                    </span>
-                  )}
-                </div>
-
-                {activeDay === 6 && (
-                  <div className={`mb-3 p-2 rounded text-sm ${chin.c}`}>
-                    <b>Chin-ups:</b> {chin.t}
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  {exs.map(ex => {
-                    const log = getLog(currentWeek, activeDay, ex.id);
-                    const prev = getPrevLog(currentWeek, activeDay, ex.id);
-                    const allFilled = Array.from({ length: ex.s }, (_, i) => isFilled(log.sets?.[i])).every(Boolean);
-
-                    let tgt = '';
-                    if (ex.w) {
-                      const ph = st[ex.wl];
-                      tgt = wendlerPcts[ph].map(s => `${calcWt(settings.wendlerTM[ex.wl], s.p)}×${s.r}`).join(' / ');
-                    } else if (ex.c) {
-                      tgt = `${settings.calisthenics[ex.ct][ex.st]} lbs`;
-                    }
-
-                    return (
-                      <div key={ex.id} className={`border rounded-lg p-3 ${isCompleted ? 'bg-gray-50 opacity-80' : ''}`}>
-                        <div className="flex justify-between">
-                          <h3 className={`font-medium text-sm ${ex.w || ex.c ? 'text-blue-700' : 'text-gray-800'}`}>{ex.n}</h3>
-                          <span className="text-xs text-gray-400">{ex.s}×{ex.r}</span>
-                        </div>
-
-                        {tgt && <p className="text-xs text-blue-600 mt-1">Target: {tgt}</p>}
-                        <p className="text-xs text-gray-400">{ex.nt}</p>
-
-                        {renderLastSessionBox(prev, allFilled)}
-
-                        <div className="grid grid-cols-3 gap-2 mt-2">
-                          {Array.from({ length: ex.s }, (_, i) => (
-                            <ExerciseInput
-                              key={`${ex.id}-${i}`}
-                              initialValue={log.sets?.[i] || ''}
-                              lastValue={prev.sets?.[i] || ''}
-                              placeholder={prev.sets?.[i] ? `Last: ${prev.sets[i]}` : `Set ${i + 1}`}
-                              onSave={(v) => logSet(currentWeek, activeDay, ex.id, i, v)}
-                            />
-                          ))}
-                        </div>
-
-                        <NotesInput
-                          key={`${ex.id}-notes`}
-                          initialValue={log.notes || ''}
-                          lastValue={prev.notes || ''}
-                          placeholder={prev.notes ? `Last: ${prev.notes}` : "Notes..."}
-                          onSave={(v) => logNotes(currentWeek, activeDay, ex.id, v)}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* FINISH WORKOUT BUTTON */}
-                <div className="mt-8">
-                  <button
-                    onClick={handleFinishDay}
-                    className="w-full py-4 rounded-lg bg-green-600 active:bg-green-700 text-white font-bold text-lg shadow-lg flex justify-center items-center gap-2"
-                  >
-                    <span>{isCompleted ? "Update & Next" : "Finish Workout"}</span>
-                    <span>→</span>
-                  </button>
-                  <p className="text-center text-xs text-gray-400 mt-2">
-                    Marks Day {activeDay} as done and loads Day {activeDay < 6 ? activeDay + 1 : 1}
-                  </p>
-                </div>
-
-              </div>
             </div>
+
+            <div className="flex justify-between items-end px-1">
+               <div>
+                  <h1 className="text-2xl font-bold text-stone-900 leading-none">{dayNames[activeDay]}</h1>
+                  <p className="text-stone-400 text-xs mt-1 font-medium">Focus: {dayEx[activeDay][0].n.split(' ')[0]}</p>
+               </div>
+            </div>
+
+            {activeDay === 6 && (
+              <div className={`p-3 rounded-lg border text-sm flex justify-between items-center ${chin.c.replace('bg-', 'bg-opacity-20 border-').replace('text-', 'border-')}`}>
+                <span className="font-bold">Chin-up Intensity</span>
+                <span className="font-mono font-bold">{chin.t}</span>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {exs.map(ex => {
+                const log = getLog(currentWeek, activeDay, ex.id);
+                const prev = getPrevLog(currentWeek, activeDay, ex.id);
+                const allFilled = Array.from({ length: ex.s }, (_, i) => isFilled(log.sets?.[i])).every(Boolean);
+
+                let tgt = '';
+                if (ex.w) {
+                  const ph = st[ex.wl];
+                  tgt = wendlerPcts[ph].map(s => `${calcWt(settings.wendlerTM[ex.wl], s.p)}×${s.r}`).join('  /  ');
+                } else if (ex.c) {
+                  tgt = `${settings.calisthenics[ex.ct][ex.st]} lbs`;
+                }
+
+                return (
+                  <div key={ex.id} className={`bg-white rounded-xl shadow-sm border border-stone-200 p-4 transition-opacity ${isCompleted ? 'opacity-75' : ''}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                         <h3 className={`font-bold text-base ${ex.w || ex.c ? 'text-stone-800' : 'text-stone-600'}`}>{ex.n}</h3>
+                         {tgt && <p className="text-xs text-emerald-600 font-mono mt-0.5 font-medium">{tgt}</p>}
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-bold text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">{ex.s} × {ex.r}</span>
+                        <p className="text-[10px] text-stone-400 mt-1">{ex.nt}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      {Array.from({ length: ex.s }, (_, i) => (
+                        <ExerciseInput
+                          key={`${ex.id}-${i}`}
+                          initialValue={log.sets?.[i] || ''}
+                          lastValue={prev.sets?.[i] || ''}
+                          placeholder={prev.sets?.[i] || "-"}
+                          onSave={(v) => logSet(currentWeek, activeDay, ex.id, i, v)}
+                        />
+                      ))}
+                    </div>
+
+                    <NotesInput
+                      key={`${ex.id}-notes`}
+                      initialValue={log.notes || ''}
+                      lastValue={prev.notes || ''}
+                      placeholder="Notes..."
+                      onSave={(v) => logNotes(currentWeek, activeDay, ex.id, v)}
+                    />
+
+                    {renderLastSessionBox(prev, allFilled)}
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={handleFinishDay}
+              className={`w-full py-4 rounded-xl font-bold text-base shadow-lg transition-transform active:scale-[0.98] flex justify-center items-center gap-2 ${isCompleted ? 'bg-stone-800 text-stone-400' : 'bg-stone-900 text-white'}`}
+            >
+              <span>{isCompleted ? "Update Session" : "Complete Workout"}</span>
+              <span className="text-xl">→</span>
+            </button>
+            <div className="h-8"></div>
           </div>
         );
       };
 
       const renderHistoryTab = () => (
-        <div className="p-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="font-bold text-gray-800 mb-4">Workout History</h2>
-            {[8,7,6,5,4,3,2,1].map(wk => {
-              const hasData = [1,2,3,4,5,6].some(d => workoutLogs[`${wk}-${d}`] && Object.keys(workoutLogs[`${wk}-${d}`]).length > 0);
-              if (!hasData) return null;
-              return (
-                <div key={wk} className="mb-4 pb-4 border-b">
-                  {/* WEEK HEADER + DELETE BUTTON */}
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-gray-700">Week {wk}</h3>
-                    <button 
-                      onClick={() => deleteWeekEntry(wk)}
-                      className="text-red-500 text-lg px-2"
-                      title="Delete all data for this week"
-                    >
-                      🗑️
-                    </button>
-                  </div>
+        <div className="p-4 max-w-md mx-auto">
+          <h2 className="font-bold text-stone-800 mb-6 text-2xl">Logbook</h2>
+          {[8,7,6,5,4,3,2,1].map(wk => {
+            const hasData = [1,2,3,4,5,6].some(d => workoutLogs[`${wk}-${d}`] && Object.keys(workoutLogs[`${wk}-${d}`]).length > 0);
+            if (!hasData) return null;
+            return (
+              <div key={wk} className="mb-6 bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+                <div className="bg-stone-50 px-4 py-3 flex justify-between items-center border-b border-stone-100">
+                  <h3 className="font-bold text-stone-700">Week {wk}</h3>
+                  <button onClick={() => deleteWeekEntry(wk)} className="text-stone-400 hover:text-rose-500 transition-colors">🗑️</button>
+                </div>
 
+                <div className="p-4 space-y-4">
                   {[1,2,3,4,5,6].map(d => {
                     const data = workoutLogs[`${wk}-${d}`];
                     if (!data || Object.keys(data).length === 0) return null;
                     const isDone = completedSessions[`${wk}-${d}`];
                     return (
-                      <div key={d} className="ml-2 mb-2">
-                        {/* DAY HEADER + DELETE BUTTON */}
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                            {dayNames[d]}
-                            {isDone && <span className="text-[10px] bg-green-100 text-green-700 px-1 rounded">DONE</span>}
-                          </h4>
-                          <button 
-                            onClick={() => deleteDayEntry(wk, d)}
-                            className="text-red-400 text-xs px-1 hover:text-red-600 font-bold"
-                            title="Delete this day"
-                          >
-                            ✕
-                          </button>
+                      <div key={d} className="border-l-2 border-stone-200 pl-3">
+                        <div className="flex items-center gap-2 mb-1">
+                           <span className="text-xs font-bold text-stone-500 uppercase tracking-wide">Day {d}</span>
+                           {isDone && <span className="text-[8px] bg-emerald-100 text-emerald-700 px-1 rounded font-bold">✓</span>}
+                           <button onClick={() => deleteDayEntry(wk, d)} className="text-[10px] text-stone-300 hover:text-rose-500 px-1">✕</button>
                         </div>
-                        
-                        {Object.entries(data).map(([id, v]) => {
-                          const ex = dayEx[d]?.find(e => e.id === id);
-                          if (!ex || !v.sets.filter(s=>s).length) return null;
-                          return <p key={id} className="text-xs text-gray-500 ml-2">{ex.n}: {v.sets.filter(s=>s).join(' / ')}{v.notes && ` (${v.notes})`}</p>;
-                        })}
+                        <div className="space-y-1">
+                          {Object.entries(data).map(([id, v]) => {
+                            const ex = dayEx[d]?.find(e => e.id === id);
+                            const sets = v.sets.filter(s=>isFilled(s));
+                            if (!ex || !sets.length) return null;
+                            return (
+                              <div key={id} className="text-sm">
+                                <span className="text-stone-800 font-medium">{ex.n}: </span>
+                                <span className="font-mono text-stone-600">{sets.join(' / ')}</span>
+                                {v.notes && <span className="text-stone-400 text-xs italic ml-2">— {v.notes}</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
-              );
-            })}
-            {Object.keys(workoutLogs).length === 0 && <p className="text-gray-400 text-center py-8">No history yet</p>}
-          </div>
+              </div>
+            );
+          })}
+          {Object.keys(workoutLogs).length <= 1 && <div className="text-center py-12 text-stone-400">No logs yet. Go lift something heavy.</div>}
         </div>
       );
 
       const renderBodyweightTab = () => (
-        <div className="p-4 space-y-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="font-bold text-gray-800 mb-3">Log Bodyweight</h2>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <input type="number" step="0.1" placeholder="Weight (lbs)" value={newWeight} onChange={e => setNewWeight(e.target.value)} className="px-3 py-2 border rounded-md"/>
-              <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="px-3 py-2 border rounded-md"/>
+        <div className="p-4 space-y-5 max-w-md mx-auto">
+          <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+            <h2 className="font-bold text-stone-800 mb-4 text-lg">Weigh In</h2>
+            <div className="flex gap-3 mb-4">
+              <input type="number" step="0.1" placeholder="lbs" value={newWeight} onChange={e => setNewWeight(e.target.value)} className="flex-1 px-4 py-3 border border-stone-300 rounded-lg bg-stone-50 text-lg font-bold text-stone-800"/>
+              <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="w-1/3 px-2 py-3 border border-stone-300 rounded-lg bg-stone-50 text-xs text-center"/>
             </div>
             <button onClick={() => {
               if (newWeight) {
@@ -919,48 +882,46 @@
                 saveBW(nl);
                 setNewWeight('');
               }
-            }} className="w-full bg-blue-600 text-white py-2 rounded-md active:bg-blue-700">Log Weight</button>
+            }} className="w-full bg-stone-800 text-white py-3 rounded-lg font-bold active:scale-95 transition-transform">Log Weight</button>
           </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="font-bold text-gray-800 mb-3">History</h2>
-            {bodyweightLogs.length > 0 ? (
-              [...bodyweightLogs].reverse().map((e, i) => (
-                <div key={i} className="flex justify-between py-2 border-b text-sm">
-                  <span className="text-gray-600">{e.date}</span>
-                  <span className="font-medium">{e.weight} lbs</span>
-                </div>
-              ))
-            ) : <p className="text-gray-400 text-center py-4">No entries</p>}
-          </div>
-          {bodyweightLogs.length >= 2 && (
-            <div className="bg-white rounded-lg shadow p-4">
-              <h2 className="font-bold text-gray-800 mb-2">Trend</h2>
-              <div className="text-sm space-y-1">
-                <div className="flex justify-between"><span>Start:</span><span>{bodyweightLogs[0].weight} lbs</span></div>
-                <div className="flex justify-between"><span>Current:</span><span>{bodyweightLogs[bodyweightLogs.length-1].weight} lbs</span></div>
-                <div className="flex justify-between border-t pt-1"><span>Change:</span>
-                  <span className={bodyweightLogs[bodyweightLogs.length-1].weight >= bodyweightLogs[0].weight ? 'text-green-600' : 'text-red-600'}>
-                    {(bodyweightLogs[bodyweightLogs.length-1].weight - bodyweightLogs[0].weight) >= 0 ? '+' : ''}
-                    {(bodyweightLogs[bodyweightLogs.length-1].weight - bodyweightLogs[0].weight).toFixed(1)} lbs
+          
+          {bodyweightLogs.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+               <div className="px-5 py-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
+                  <span className="font-bold text-stone-700">Trend</span>
+                  <span className={`font-bold font-mono ${bodyweightLogs[bodyweightLogs.length-1].weight < bodyweightLogs[0].weight ? 'text-emerald-600' : 'text-stone-400'}`}>
+                     {(bodyweightLogs[bodyweightLogs.length-1].weight - bodyweightLogs[0].weight).toFixed(1)} lbs
                   </span>
-                </div>
-              </div>
+               </div>
+               <div className="divide-y divide-stone-50">
+                {[...bodyweightLogs].reverse().map((e, i) => (
+                  <div key={i} className="flex justify-between py-3 px-5 text-sm">
+                    <span className="text-stone-500 font-mono text-xs mt-0.5">{e.date}</span>
+                    <span className="font-bold text-stone-800">{e.weight} lbs</span>
+                  </div>
+                ))}
+               </div>
             </div>
           )}
         </div>
       );
 
       return (
-        <div className="min-h-screen bg-gray-100">
-          <div className="bg-blue-700 text-white p-4 flex justify-between items-center">
+        <div className="min-h-screen pb-24 font-sans text-stone-900 selection:bg-stone-200">
+          
+          {/* HEADER */}
+          <div className="bg-stone-900 text-stone-50 px-5 py-4 flex justify-between items-center shadow-md sticky top-0 z-50">
             <div>
-              <h1 className="text-lg font-bold">Jay's Workout Tracker</h1>
-              <p className="text-blue-200 text-xs">Staggered Wendler + Weighted Calisthenics</p>
+              <h1 className="text-base font-bold tracking-tight">Workout Tracker</h1>
+              <p className="text-stone-500 text-[10px] font-medium tracking-wide uppercase">WENDLER + STREETLIFTING</p>
             </div>
-            {saveStatus && <span className="text-green-300 text-sm">{saveStatus}</span>}
+            <div className="flex items-center gap-2">
+               {saveStatus && <span className="text-emerald-400 text-xs font-mono animate-pulse">{saveStatus}</span>}
+               {!pantryId && <span className="w-2 h-2 rounded-full bg-rose-500"></span>}
+            </div>
           </div>
 
-          <div className="pb-20">
+          <div className="pt-2">
             {activeTab === 'setup' && renderSetupTab()}
             {activeTab === 'wendler' && renderWendlerTab()}
             {activeTab === 'workout' && renderWorkoutTab()}
@@ -968,18 +929,20 @@
             {activeTab === 'bodyweight' && renderBodyweightTab()}
           </div>
 
-          <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex safe-area-inset-bottom">
+          {/* BOTTOM NAV */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-stone-200 flex safe-area-inset-bottom z-50 shadow-[0_-5px_10px_rgba(0,0,0,0.02)]">
             {[
-              {id: 'workout', l: 'Workout', i: '🏋️'},
-              {id: 'wendler', l: 'Wendler', i: '📊'},
-              {id: 'history', l: 'History', i: '📜'},
-              {id: 'bodyweight', l: 'Weight', i: '⚖️'},
-              {id: 'setup', l: 'Setup', i: '⚙️'}
+              {id: 'workout', l: 'Lift', i: '⚡'},
+              {id: 'wendler', l: 'Cycle', i: '📊'},
+              {id: 'history', l: 'Log', i: '📓'},
+              {id: 'bodyweight', l: 'Body', i: '⚖️'},
+              {id: 'setup', l: 'Config', i: '⚙️'}
             ].map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
-                className={`flex-1 py-3 text-center ${activeTab === t.id ? 'text-blue-600 bg-blue-50' : 'text-gray-500'}`}>
-                <div className="text-xl">{t.i}</div>
-                <div className="text-xs">{t.l}</div>
+                className={`flex-1 py-3 text-center transition-colors relative ${activeTab === t.id ? 'text-stone-900' : 'text-stone-400 hover:text-stone-500'}`}>
+                {activeTab === t.id && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-stone-900 rounded-b"></div>}
+                <div className="text-xl mb-0.5 leading-none filter grayscale">{t.i}</div>
+                <div className="text-[9px] font-bold uppercase tracking-wider">{t.l}</div>
               </button>
             ))}
           </div>
