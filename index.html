@@ -257,7 +257,8 @@
       const pushToCloud = (key, data) => {
         if (!pantryId) return;
         fetch(getCloudUrl(pantryId), {
-          method: 'POST',
+          // CHANGE THIS FROM 'POST' TO 'PUT'
+          method: 'PUT', 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ [key]: data })
         }).then(() => {
