@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Workout Tracker" />
-  <title>Workout Tracker</title>
+  <meta name="apple-mobile-web-app-title" content="Tracker v2" />
+  <title>Workout Tracker v2</title>
   
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V2</text></svg>">
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V2</text></svg>">
@@ -695,35 +695,6 @@
               </div>
             )}
 
-            {/* Session Metadata: Date + Duration */}
-            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-4">
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Date</label>
-                  <input 
-                    type="date" 
-                    value={getSessionMeta(currentWeek, activeDay).date || ''} 
-                    onChange={e => saveSessionMeta(currentWeek, activeDay, 'date', e.target.value)}
-                    placeholder={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50 text-sm text-stone-700"
-                  />
-                </div>
-                <div className="w-28">
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Duration</label>
-                  <div className="relative">
-                    <input 
-                      type="number" 
-                      value={getSessionMeta(currentWeek, activeDay).duration || ''} 
-                      onChange={e => saveSessionMeta(currentWeek, activeDay, 'duration', e.target.value)}
-                      placeholder="—"
-                      className="w-full px-3 py-2 pr-10 border border-stone-200 rounded-lg bg-stone-50 text-sm text-stone-700 font-mono"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs">min</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             <div className="space-y-4">
               {dayExIds.map(id => {
                 const ex = settings.registry[id];
@@ -775,6 +746,34 @@
                 );
               })}
             </div>
+            {/* Session Metadata: Date + Duration */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-4">
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Date</label>
+                  <input 
+                    type="date" 
+                    value={getSessionMeta(currentWeek, activeDay).date || new Date().toISOString().split('T')[0]} 
+                    onChange={e => saveSessionMeta(currentWeek, activeDay, 'date', e.target.value)}
+                    className="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50 text-sm text-stone-700"
+                  />
+                </div>
+                <div className="w-28">
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Duration</label>
+                  <div className="relative">
+                    <input 
+                      type="number" 
+                      value={getSessionMeta(currentWeek, activeDay).duration || ''} 
+                      onChange={e => saveSessionMeta(currentWeek, activeDay, 'duration', e.target.value)}
+                      placeholder="—"
+                      className="w-full px-3 py-2 pr-10 border border-stone-200 rounded-lg bg-stone-50 text-sm text-stone-700 font-mono"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs">min</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <button onClick={handleFinishDay} className={`w-full py-4 rounded-xl font-bold text-base shadow-lg transition-transform active:scale-[0.98] flex justify-center items-center gap-2 ${isCompleted ? 'bg-stone-800 text-stone-400' : 'bg-stone-900 text-white'}`}>
               <span>{isCompleted ? "Update Session" : "Complete Workout"}</span><span className="text-xl">→</span>
             </button>
@@ -877,7 +876,7 @@
       return (
         <div className="min-h-screen pb-24 font-sans text-stone-900 selection:bg-stone-200">
           <div className="bg-stone-900 text-stone-50 px-5 py-4 flex justify-between items-center shadow-md sticky top-0 z-50">
-            <div><h1 className="text-base font-bold tracking-tight">Workout Tracker</h1><p className="text-stone-500 text-[10px] font-medium tracking-wide uppercase">Hypertrophy + Strength</p></div>
+            <div><h1 className="text-base font-bold tracking-tight">Tracker v2</h1><p className="text-stone-500 text-[10px] font-medium tracking-wide uppercase">HYPERTROPHY + STRENGTH</p></div>
             <div className="flex items-center gap-2">{saveStatus && <span className="text-emerald-400 text-xs font-mono animate-pulse">{saveStatus}</span>}{!pantryId && <span className="w-2 h-2 rounded-full bg-rose-500"></span>}</div>
           </div>
           <div className="pt-2">
