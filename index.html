@@ -30,6 +30,13 @@
   <script type="text/babel">
     const { useState, useCallback, useRef, useEffect, useMemo } = React;
 
+    // ==========================================
+    // CONFIGURATION
+    // ==========================================
+    const SUPABASE_URL = 'https://pjhxdcugdnetzsswwvgh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqaHhkY3VnZG5ldHpzc3d3dmdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwMzM3MTksImV4cCI6MjA4MjYwOTcxOX0.mAhyzvOO-ZLNiX0p7nuEhPSqzx-JoBvweJlwlzY9qwM';
+    // ==========================================
+
     // ---- 1. DEFINITIONS & DEFAULTS ----
     
     // Default Registry: Defines WHAT the exercises are (Attributes)
@@ -132,7 +139,63 @@
       return s;
     };
 
-    // ---- 3. COMPONENTS ----
+    // ---- 3. SUPABASE CLIENT WITH SECRET KEY ----
+    const createSupabaseClient = (url, anonKey, secretKey) => {
+      const baseUrl = url.replace(/\/$/, '');
+      
+      const request = async (table, method, body = null, query = '') => {
+        const headers = {
+          'apikey': anonKey,
+          'Authorization': `Bearer ${anonKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': method === 'POST' ? 'return=representation,resolution=merge-duplicates' : 'return=representation',
+          'x-secret-key': secretKey // Pass secret in header for RLS
+        };
+        
+        const options = { method, headers };
+        if (body) options.body = JSON.stringify(body);
+        
+        const res = await fetch(`${baseUrl}/rest/v1/${table}${query}`, options);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Supabase error: ${res.status} - ${text}`);
+        }
+        return res.json();
+      };
+      
+      return {
+        // Get all data for a user (RLS filters by secret)
+        getData: async (userId) => {
+          const data = await request('workout_data', 'GET', null, `?user_id=eq.${userId}&select=*`);
+          return data[0] || null;
+        },
+        
+        // Upsert (insert or update) data - includes secret_key for RLS
+        upsertData: async (userId, payload) => {
+          return request('workout_data', 'POST', {
+            user_id: userId,
+            secret_key: secretKey,
+            settings: payload.settings,
+            logs: payload.logs,
+            completed: payload.completed,
+            bodyweight: payload.bw,
+            updated_at: new Date().toISOString()
+          });
+        },
+        
+        // Test connection
+        testConnection: async (userId) => {
+          try {
+            await request('workout_data', 'GET', null, `?user_id=eq.${userId}&select=user_id`);
+            return { success: true };
+          } catch (e) {
+            return { success: false, error: e.message };
+          }
+        }
+      };
+    };
+
+    // ---- 4. COMPONENTS ----
     const ExerciseInput = React.memo(({ placeholder, initialValue, lastValue, onSave, setIndex }) => {
       const [value, setValue] = useState(initialValue);
       const isEditingRef = useRef(false);
@@ -217,7 +280,7 @@
       );
     });
 
-    // ---- 4. MAIN APP ----
+    // ---- 5. MAIN APP ----
     const WorkoutTracker = () => {
       
       // Auto-Start Logic
@@ -239,15 +302,34 @@
       const [currentWeek, setCurrentWeek] = useState(startLoc.w);
       const [activeDay, setActiveDay] = useState(startLoc.d);
       const [saveStatus, setSaveStatus] = useState('');
-      const [pantryId, setPantryId] = useState(() => localStorage.getItem('jay-pantry-id') || '');
       
-      // *** FIX: Lifted state for JSON editor (was inside renderSetupTab causing hooks violation) ***
+      // Config - URL and anon key can be hardcoded, secret is stored locally
+      const [secretKey, setSecretKey] = useState(() => localStorage.getItem('jay-secret-key') || '');
+      const [userId, setUserId] = useState(() => localStorage.getItem('jay-user-id') || 'jay');
+      
+      // For manual config if not hardcoded
+      const [manualUrl, setManualUrl] = useState(() => localStorage.getItem('jay-supabase-url') || '');
+      const [manualAnonKey, setManualAnonKey] = useState(() => localStorage.getItem('jay-supabase-anon') || '');
+      
+      // Determine which config to use
+      const activeUrl = SUPABASE_URL || manualUrl;
+      const activeAnonKey = SUPABASE_ANON_KEY || manualAnonKey;
+      const isHardcoded = SUPABASE_URL && SUPABASE_ANON_KEY;
+      
+      // JSON editor state
       const [jsonEditMode, setJsonEditMode] = useState(false);
       const [jsonText, setJsonText] = useState('');
       
-      const BASKET_NAME = "jays-workout-tracker";
-      const getCloudUrl = (id) => `https://getpantry.cloud/apiv1/pantry/${id}/basket/${BASKET_NAME}?_=${Date.now()}`;
-      const getPostUrl = (id) => `https://getpantry.cloud/apiv1/pantry/${id}/basket/${BASKET_NAME}`;
+      // Supabase client ref
+      const supabaseRef = useRef(null);
+      
+      useEffect(() => {
+        if (activeUrl && activeAnonKey && secretKey) {
+          supabaseRef.current = createSupabaseClient(activeUrl, activeAnonKey, secretKey);
+        } else {
+          supabaseRef.current = null;
+        }
+      }, [activeUrl, activeAnonKey, secretKey]);
 
       const [settings, setSettings] = useState(() => {
         try { 
@@ -282,63 +364,76 @@
       const stateRef = useRef({ workoutLogs, settings, completedSessions, bodyweightLogs });
       useEffect(() => { stateRef.current = { workoutLogs, settings, completedSessions, bodyweightLogs }; }, [workoutLogs, settings, completedSessions, bodyweightLogs]);
 
-      // Cloud Logic
+      // Cloud Logic - Supabase
       useEffect(() => {
-        if (!pantryId) return;
+        if (!supabaseRef.current || !userId) return;
+        
         const loadCloudData = async () => {
           try {
-            const res = await fetch(getCloudUrl(pantryId));
-            if (!res.ok) return; 
-            const data = await res.json();
+            setSaveStatus('Syncing... ☁️');
+            const data = await supabaseRef.current.getData(userId);
             
-            if (data.settings) {
-              const migrated = ensureStructure(data.settings);
-              const merged = mergeData(settings, migrated);
-              setSettings(merged);
-              localStorage.setItem('jay-settings', JSON.stringify(merged));
+            if (data) {
+              if (data.settings) {
+                const migrated = ensureStructure(data.settings);
+                const merged = mergeData(settings, migrated);
+                setSettings(merged);
+                localStorage.setItem('jay-settings', JSON.stringify(merged));
+              }
+              if (data.logs) {
+                const merged = mergeData(workoutLogs, data.logs);
+                setWorkoutLogs(merged);
+                localStorage.setItem('jay-workout-logs', JSON.stringify(merged));
+              }
+              if (data.completed) {
+                const merged = { ...completedSessions, ...data.completed };
+                setCompletedSessions(merged);
+                localStorage.setItem('jay-completed-sessions', JSON.stringify(merged));
+              }
+              if (data.bodyweight) {
+                const combined = [...bodyweightLogs, ...data.bodyweight];
+                const unique = Array.from(new Map(combined.map(item => [item.date, item])).values()).sort((a,b) => new Date(a.date) - new Date(b.date));
+                setBodyweightLogs(unique);
+                localStorage.setItem('jay-bodyweight-logs', JSON.stringify(unique));
+              }
             }
-            if (data.logs) {
-              const merged = mergeData(workoutLogs, data.logs);
-              setWorkoutLogs(merged);
-              localStorage.setItem('jay-workout-logs', JSON.stringify(merged));
-            }
-            if (data.completed) {
-              const merged = { ...completedSessions, ...data.completed };
-              setCompletedSessions(merged);
-              localStorage.setItem('jay-completed-sessions', JSON.stringify(merged));
-            }
-            if (data.bw) {
-              const combined = [...bodyweightLogs, ...data.bw];
-              const unique = Array.from(new Map(combined.map(item => [item.date, item])).values()).sort((a,b) => new Date(a.date) - new Date(b.date));
-              setBodyweightLogs(unique);
-              localStorage.setItem('jay-bodyweight-logs', JSON.stringify(unique));
-            }
-            setSaveStatus('Synced ☁️');
+            setSaveStatus('Synced ✓');
             setTimeout(() => setSaveStatus(''), 2000);
-          } catch (e) { console.error("Cloud load error:", e); }
+          } catch (e) { 
+            console.error("Cloud load error:", e); 
+            setSaveStatus('Sync Error ❌');
+            setTimeout(() => setSaveStatus(''), 3000);
+          }
         };
         loadCloudData();
-      }, [pantryId]);
+      }, [activeUrl, activeAnonKey, secretKey, userId]);
 
-      const pushToCloud = () => {
-        if (!pantryId) return;
+      const pushToCloud = async () => {
+        if (!supabaseRef.current || !userId) return;
         const s = stateRef.current;
-        fetch(getPostUrl(pantryId), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ settings: s.settings, logs: s.workoutLogs, completed: s.completedSessions, bw: s.bodyweightLogs })
-        }).then(() => { setSaveStatus('Saved ☁️'); setTimeout(() => setSaveStatus(''), 2000); })
-          .catch(() => setSaveStatus('Cloud Error ❌'));
+        try {
+          await supabaseRef.current.upsertData(userId, {
+            settings: s.settings,
+            logs: s.workoutLogs,
+            completed: s.completedSessions,
+            bw: s.bodyweightLogs
+          });
+          setSaveStatus('Saved ✓');
+          setTimeout(() => setSaveStatus(''), 2000);
+        } catch (e) {
+          console.error("Cloud save error:", e);
+          setSaveStatus('Save Error ❌');
+          setTimeout(() => setSaveStatus(''), 3000);
+        }
       };
 
       const forcePull = async () => {
-        if (!pantryId) return alert("Enter Pantry ID first");
+        if (!supabaseRef.current || !userId) return alert("Configure Supabase first");
         if (!confirm("OVERWRITE local data with Cloud data?")) return;
         setSaveStatus('Pulling... ⏬');
         try {
-          const res = await fetch(getCloudUrl(pantryId), { method: 'GET', cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
-          if (!res.ok) throw new Error("Fetch failed");
-          const data = await res.json();
+          const data = await supabaseRef.current.getData(userId);
+          if (!data) throw new Error("No data found in cloud (check secret key)");
           
           localStorage.removeItem('jay-settings');
           localStorage.removeItem('jay-workout-logs');
@@ -348,18 +443,25 @@
           if(data.settings) localStorage.setItem('jay-settings', JSON.stringify(ensureStructure(data.settings)));
           if(data.logs) localStorage.setItem('jay-workout-logs', JSON.stringify(data.logs));
           if(data.completed) localStorage.setItem('jay-completed-sessions', JSON.stringify(data.completed));
-          if(data.bw) localStorage.setItem('jay-bodyweight-logs', JSON.stringify(data.bw));
+          if(data.bodyweight) localStorage.setItem('jay-bodyweight-logs', JSON.stringify(data.bodyweight));
           
           alert("Success! Reloading...");
           window.location.reload();
-        } catch (e) { alert("Failed: " + e.message); setSaveStatus('Error ❌'); }
+        } catch (e) { 
+          alert("Failed: " + e.message); 
+          setSaveStatus('Error ❌'); 
+        }
       };
 
+      // Auto-save every 60 seconds
       useEffect(() => {
-        if (!pantryId) return;
-        const intervalId = setInterval(() => { setSaveStatus('Auto-Saving... ⚡'); pushToCloud(); }, 30000);
+        if (!supabaseRef.current || !userId) return;
+        const intervalId = setInterval(() => { 
+          setSaveStatus('Auto-Saving... ⚡'); 
+          pushToCloud(); 
+        }, 60000);
         return () => clearInterval(intervalId);
-      }, [pantryId]);
+      }, [activeUrl, activeAnonKey, secretKey, userId]);
 
       // Save Helpers
       const saveTimeout = useRef(null);
@@ -368,16 +470,16 @@
         setSettings(payload);
         localStorage.setItem('jay-settings', JSON.stringify(payload));
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
-        saveTimeout.current = setTimeout(() => pushToCloud(), 1000);
-      }, [pantryId]);
+        saveTimeout.current = setTimeout(() => pushToCloud(), 2000);
+      }, [activeUrl, activeAnonKey, secretKey, userId]);
 
       const saveLogsDebounced = useCallback((l) => {
         const payload = { ...l, _updated: Date.now() };
         setWorkoutLogs(payload);
         localStorage.setItem('jay-workout-logs', JSON.stringify(payload));
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
-        saveTimeout.current = setTimeout(() => pushToCloud(), 1000);
-      }, [pantryId]);
+        saveTimeout.current = setTimeout(() => pushToCloud(), 2000);
+      }, [activeUrl, activeAnonKey, secretKey, userId]);
 
       const saveCompletion = (c) => {
         setCompletedSessions(c);
@@ -413,7 +515,7 @@
       };
 
       const deleteWeekEntry = (w) => {
-        if (!confirm(`Delete Week ${w}?`)) return;
+        if (!confirm(`Delete Week ${w}?`) ) return;
         const newLogs = { ...workoutLogs, _updated: Date.now() };
         const newComp = { ...completedSessions };
         for (let d = 1; d <= 6; d++) {
@@ -516,25 +618,156 @@
         } catch(e) { alert("Invalid JSON: " + e.message); }
       };
 
+      // Save config
+      const saveConfig = () => {
+        localStorage.setItem('jay-secret-key', secretKey);
+        localStorage.setItem('jay-user-id', userId);
+        if (!isHardcoded) {
+          localStorage.setItem('jay-supabase-url', manualUrl);
+          localStorage.setItem('jay-supabase-anon', manualAnonKey);
+        }
+        alert('Config saved! Reload to sync.');
+        window.location.reload();
+      };
+
       // ---- RENDERERS ----
 
       // 1. SETUP TAB
       const renderSetupTab = () => {
+        const isConnected = supabaseRef.current !== null;
+        
         return (
           <div className="p-4 space-y-6 max-w-md mx-auto">
-            {/* Sync Card */}
+            {/* Supabase Sync Card */}
             <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
-              <h2 className="font-bold text-stone-800 mb-3 text-lg">Cloud Sync</h2>
-              <input type="text" placeholder="Pantry ID" value={pantryId} onChange={e => {
-                  const v = e.target.value.trim(); setPantryId(v); localStorage.setItem('jay-pantry-id', v);
-                }} className="w-full px-4 py-3 border border-stone-300 rounded-lg text-sm font-mono bg-stone-50" />
+              <div className="flex items-center gap-2 mb-4">
+                <h2 className="font-bold text-stone-800 text-lg">Cloud Sync</h2>
+                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">Supabase</span>
+              </div>
+              
+              <div className="space-y-3">
+                {/* Show URL/Key fields only if not hardcoded */}
+                {!isHardcoded && (
+                  <>
+                    <div>
+                      <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Project URL</label>
+                      <input 
+                        type="text" 
+                        placeholder="https://xxxxx.supabase.co" 
+                        value={manualUrl} 
+                        onChange={e => setManualUrl(e.target.value.trim())}
+                        className="w-full px-4 py-3 border border-stone-300 rounded-lg text-sm font-mono bg-stone-50" 
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Anon Key</label>
+                      <input 
+                        type="text" 
+                        placeholder="eyJhbGciOiJIUzI1NiIs..." 
+                        value={manualAnonKey} 
+                        onChange={e => setManualAnonKey(e.target.value.trim())}
+                        className="w-full px-4 py-3 border border-stone-300 rounded-lg text-sm font-mono bg-stone-50" 
+                      />
+                    </div>
+                  </>
+                )}
+                
+                {isHardcoded && (
+                  <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                    <p className="text-xs text-emerald-700">✓ Supabase URL & Key are configured in code</p>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">
+                    Secret Key <span className="text-rose-500">*</span>
+                  </label>
+                  <input 
+                    type="password" 
+                    placeholder="Your private secret (never share!)" 
+                    value={secretKey} 
+                    onChange={e => setSecretKey(e.target.value.trim())}
+                    className="w-full px-4 py-3 border border-stone-300 rounded-lg text-sm font-mono bg-stone-50" 
+                  />
+                  <p className="text-[10px] text-stone-400 mt-1">This protects your data. Store it safely!</p>
+                </div>
+                
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">User ID</label>
+                  <input 
+                    type="text" 
+                    placeholder="jay" 
+                    value={userId} 
+                    onChange={e => setUserId(e.target.value.trim())}
+                    className="w-full px-4 py-3 border border-stone-300 rounded-lg text-sm font-mono bg-stone-50" 
+                  />
+                </div>
+              </div>
+              
               <div className="flex gap-3 mt-4 items-center">
-                 {pantryId ? <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Active</span> : <span className="text-xs text-stone-400">Not connected</span>}
+                {isConnected ? (
+                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Connected</span>
+                ) : (
+                  <span className="text-xs text-stone-400">{secretKey ? 'Missing URL/Key' : 'Enter Secret Key'}</span>
+                )}
+                <button 
+                  onClick={saveConfig}
+                  className="ml-auto text-xs font-bold text-stone-600 bg-stone-100 px-3 py-1.5 rounded hover:bg-stone-200"
+                >
+                  Save Config
+                </button>
               </div>
+              
               <div className="grid grid-cols-2 gap-3 mt-4">
-                <button onClick={() => { if(!pantryId) return alert("ID?"); pushToCloud(); alert('Pushed'); }} className="bg-stone-800 text-stone-100 text-xs font-bold px-2 py-3 rounded-lg">Push (Local → Cloud)</button>
-                <button onClick={forcePull} className="bg-white border-2 border-stone-800 text-stone-900 text-xs font-bold px-2 py-3 rounded-lg">Download (Cloud → Local)</button>
+                <button 
+                  onClick={() => { if(!isConnected) return alert("Enter secret key first"); pushToCloud(); }} 
+                  className="bg-stone-800 text-stone-100 text-xs font-bold px-2 py-3 rounded-lg disabled:opacity-50"
+                  disabled={!isConnected}
+                >
+                  Push (Local → Cloud)
+                </button>
+                <button 
+                  onClick={forcePull} 
+                  className="bg-white border-2 border-stone-800 text-stone-900 text-xs font-bold px-2 py-3 rounded-lg disabled:opacity-50"
+                  disabled={!isConnected}
+                >
+                  Download (Cloud → Local)
+                </button>
               </div>
+              
+              {/* Setup Instructions */}
+              <details className="mt-4">
+                <summary className="text-[10px] text-stone-400 cursor-pointer hover:text-stone-600">Setup Instructions</summary>
+                <div className="mt-2 p-3 bg-stone-50 rounded-lg text-[11px] text-stone-500 space-y-2">
+                  <p><strong>1.</strong> Create free project at <span className="font-mono">supabase.com</span></p>
+                  <p><strong>2.</strong> Go to SQL Editor, run this schema:</p>
+                  <pre className="bg-stone-100 p-2 rounded text-[10px] overflow-x-auto whitespace-pre-wrap">
+{`-- Table
+CREATE TABLE workout_data (
+  user_id TEXT PRIMARY KEY,
+  secret_key TEXT NOT NULL,
+  settings JSONB,
+  logs JSONB,
+  completed JSONB,
+  bodyweight JSONB,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE workout_data ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Only allow access if secret matches
+CREATE POLICY "Secret key access" ON workout_data
+FOR ALL USING (
+  secret_key = current_setting('request.headers', true)::json->>'x-secret-key'
+);`}
+                  </pre>
+                  <p><strong>3.</strong> Get URL & anon key from Settings → API</p>
+                  <p><strong>4.</strong> Hardcode URL & anon key in the HTML file (safe to commit)</p>
+                  <p><strong>5. Enter YOUR secret key above (never share this!)</strong></p>
+                </div>
+              </details>
             </div>
 
             {/* Wendler Card */}
@@ -877,7 +1110,11 @@
         <div className="min-h-screen pb-24 font-sans text-stone-900 selection:bg-stone-200">
           <div className="bg-stone-900 text-stone-50 px-5 py-4 flex justify-between items-center shadow-md sticky top-0 z-50">
             <div><h1 className="text-base font-bold tracking-tight">Tracker v2</h1><p className="text-stone-500 text-[10px] font-medium tracking-wide uppercase">HYPERTROPHY + STRENGTH</p></div>
-            <div className="flex items-center gap-2">{saveStatus && <span className="text-emerald-400 text-xs font-mono animate-pulse">{saveStatus}</span>}{!pantryId && <span className="w-2 h-2 rounded-full bg-rose-500"></span>}</div>
+            <div className="flex items-center gap-2">
+              {saveStatus && <span className="text-emerald-400 text-xs font-mono animate-pulse">{saveStatus}</span>}
+              {!supabaseRef.current && <span className="w-2 h-2 rounded-full bg-rose-500" title="Cloud not configured"></span>}
+              {supabaseRef.current && <span className="w-2 h-2 rounded-full bg-emerald-500" title="Cloud connected"></span>}
+            </div>
           </div>
           <div className="pt-2">
             {activeTab === 'setup' && renderSetupTab()}
@@ -902,4 +1139,5 @@
     ReactDOM.createRoot(document.getElementById('root')).render(<WorkoutTracker />);
   </script>
 </body>
+  
 </html>
