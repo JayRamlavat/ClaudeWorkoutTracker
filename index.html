@@ -134,17 +134,15 @@
     };
 
     // Migration: Ensure settings have schedule/registry if loading old JSON
-    const ensureStructure = (settings) => {
+const ensureStructure = (settings) => {
   const s = { ...settings };
   if (!s.schedule) s.schedule = DEFAULT_SCHEDULE;
   if (!s.registry) {
     s.registry = DEFAULT_REGISTRY;
   } else {
-    // Merge any missing registry entries from defaults
+    // Merge registry - OVERWRITE names from defaults while keeping any custom entries
     for (const key in DEFAULT_REGISTRY) {
-      if (!(key in s.registry)) {
-        s.registry[key] = DEFAULT_REGISTRY[key];
-      }
+      s.registry[key] = { ...s.registry[key], ...DEFAULT_REGISTRY[key] };
     }
   }
   return s;
