@@ -47,8 +47,9 @@
       "d1_inc": { n: "Incline DB Press", s: 2, r: "5-9", nt: "Tucked elbows" },
       "d1_curl": { n: "EZ Bar Curls", s: 3, r: "6-10", nt: "Short head" },
       "d1_push": { n: "Seated Tricep Pushdown", s: 3, r: "6-10", nt: "Lat/medial" },
-      "d1_lat": { n: "Lateral Raises", s: 2, r: "8-12", nt: "Side delt" },
+      "d6_lat": { n: "Machine Lateral Raises", s: 2, r: "6-10", nt: "Side delt" },
       "d1_calf": { n: "Leg Press Calf", s: 2, r: "12-15", nt: "Full ROM" },
+      "d1_lowTrap": { n: "Lower Trap Cable raise", s: 1, r: "10-15", nt: "Lower Traps" },
       // D2
       "dead": { n: "Deadlift", w: true, wl: "deadlift", s: 3, r: "cycle", nt: "AMRAP last" },
       "d2_pause": { n: "Pause Squat", s: 2, r: "4-8", nt: "2s pause" },
@@ -89,18 +90,18 @@
       "d6_vbar": { n: "EZ-Bar Pushdowns", s: 3, r: "6-10", nt: "Lat/medial" },
       "d6_bay": { n: "Bayesian Curl", s: 3, r: "8-12", nt: "Long head" },
       "d6_spider": { n: "Spider Curl", s: 2, r: "8-12", nt: "Short head" },
-      "d6_lat": { n: "Machine Lateral Raises", s: 2, r: "6-10", nt: "Side delt" },
+      "d1_lat": { n: "Lateral Raises", s: 2, r: "8-12", nt: "Side delt" },
       "d6_face": { n: "Reverse Pec Deck Unilateral", s: 2, r: "6-10", nt: "Rear delt" }
     };
 
     // Default Schedule: Defines WHERE the exercises happen (Order)
     const DEFAULT_SCHEDULE = {
-      1: ["bench", "d1_tbar", "d1_inc", "d1_curl", "d1_push", "d1_lat", "d1_calf"],
+      1: ["bench", "d1_tbar", "d1_inc", "d1_curl", "d1_push", "d6_lat", "d1_calf","d1_lowTrap"],
       2: ["dead", "d2_pause", "d2_calf", "d2_ham", "d2_rdl", "d2_rot", "d2_drag"],
       3: ["dip_t", "dip_b", "d3_preach", "d3_oh", "d3_inc", "d3_lat", "d3_rev"],
       4: ["pull_t", "pull_b", "d4_flat", "d4_row", "d4_inc", "d4_pec", "d4_ql","d6_dhg"],
       5: ["squat", "d5_rdl", "d5_ext", "d5_calf", "d5_leg", "d5_abs","d5_lbackext"],
-      6: ["chin_t", "chin_b", "ohp", "d6_vbar", "d6_bay", "d6_spider", "d6_lat", "d6_face"]
+      6: ["chin_t", "chin_b", "ohp", "d6_vbar", "d6_bay", "d6_spider", "d1_lat", "d6_face"]
     };
 
     const defaultSettings = {
