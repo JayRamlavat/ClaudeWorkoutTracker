@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Tracker V3" />
-  <title>Workout Tracker V3</title>
+  <meta name="apple-mobile-web-app-title" content="Tracker V4" />
+  <title>Workout Tracker V4</title>
   
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V3</text></svg>">
-  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V3</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V4</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V4</text></svg>">
 
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -45,7 +45,7 @@
       "bench": { n: "Bench Press", w: true, wl: "bench", s: 3, r: "cycle", nt: "AMRAP last" },
       "d1_tbar": { n: "T-Bar Rows", s: 2, r: "4-6", nt: "Full ROM" },
       "d1_inc": { n: "Incline DB Press", s: 2, r: "5-9", nt: "Tucked elbows" },
-      "d1_curl": { n: "EZ Bar Curls", s: 2, r: "6-10", nt: "Short head" },
+      "d1_curl": { n: "EZ Bar Curls", s: 3, r: "6-10", nt: "Short head" },
       "d1_push": { n: "Seated Tricep Pushdown", s: 3, r: "6-10", nt: "Lat/medial" },
       "d1_lat": { n: "Lateral Raises", s: 2, r: "8-12", nt: "Side delt" },
       "d1_calf": { n: "Leg Press Calf", s: 2, r: "12-15", nt: "Full ROM" },
@@ -70,7 +70,7 @@
       "pull_b": { n: "Pull-ups (Back)", c: true, ct: "pullups", st: "backoff", s: 2, r: "6-8", nt: "~75%" },
       "d4_flat": { n: "Flat DB Press", s: 2, r: "4-8", nt: "45° elbows" },
       "d4_row": { n: "BB Row", s: 2, r: "5-8", nt: "Pause" },
-      "d4_inc": { n: "Inc Press Mach", s: 2, r: "6-10", nt: "Chest" },
+      "d4_inc": { n: "Inc Press Mach", s: 1, r: "6-10", nt: "Chest" },
       "d4_pec": { n: "Pec Deck", s: 2, r: "8-11", nt: "Iso" },
       "d4_ql": { n: "QL Ext", s: 1, r: "12-15", nt: "LEFT 1st" },
       // D5
@@ -80,6 +80,7 @@
       "d5_calf": { n: "Stand Calf", s: 3, r: "8-15", nt: "Gastroc" },
       "d5_leg": { n: "Hanging Leg Raises", s: 2, r: "6-10", nt: "Lower abs" },
       "d5_abs": { n: "Abs Machine", s: 2, r: "6-10", nt: "Core" },
+      "d5_lbackext": {n: "Back Extensions", s: 1, r: "1-3 min", nt: "Lower Back"},
       "d6_dhg": { n: "Dead Hangs", s: 1, r: "1-3 min", nt: "Mobility" },
       // D6
       "chin_t": { n: "Chins (Top)", c: true, ct: "chinups", st: "top", s: 1, r: "3-5", nt: "Check Int" },
@@ -89,7 +90,7 @@
       "d6_bay": { n: "Bayesian Curl", s: 3, r: "8-12", nt: "Long head" },
       "d6_spider": { n: "Spider Curl", s: 2, r: "8-12", nt: "Short head" },
       "d6_lat": { n: "Machine Lateral Raises", s: 2, r: "6-10", nt: "Side delt" },
-      "d6_face": { n: "Face Pulls", s: 2, r: "12-15", nt: "Rear delt" }
+      "d6_face": { n: "Reverse Pec Deck Unilateral", s: 2, r: "6-10", nt: "Rear delt" }
     };
 
     // Default Schedule: Defines WHERE the exercises happen (Order)
@@ -98,7 +99,7 @@
       2: ["dead", "d2_pause", "d2_calf", "d2_ham", "d2_rdl", "d2_rot", "d2_drag"],
       3: ["dip_t", "dip_b", "d3_preach", "d3_oh", "d3_inc", "d3_lat", "d3_rev"],
       4: ["pull_t", "pull_b", "d4_flat", "d4_row", "d4_inc", "d4_pec", "d4_ql"],
-      5: ["squat", "d5_rdl", "d5_ext", "d5_calf", "d5_leg", "d5_abs","d6_dhg"],
+      5: ["squat", "d5_rdl", "d5_ext", "d5_calf", "d5_leg", "d5_abs","d5_lbackext","d6_dhg"],
       6: ["chin_t", "chin_b", "ohp", "d6_vbar", "d6_bay", "d6_spider", "d6_lat", "d6_face"]
     };
 
@@ -1119,7 +1120,7 @@ FOR ALL USING (
       return (
         <div className="min-h-screen pb-24 font-sans text-stone-900 selection:bg-stone-200">
           <div className="bg-stone-900 text-stone-50 px-5 py-4 flex justify-between items-center shadow-md sticky top-0 z-50">
-            <div><h1 className="text-base font-bold tracking-tight">Tracker V3</h1><p className="text-stone-500 text-[10px] font-medium tracking-wide uppercase">HYPERTROPHY + STRENGTH</p></div>
+            <div><h1 className="text-base font-bold tracking-tight">Tracker V4</h1><p className="text-stone-500 text-[10px] font-medium tracking-wide uppercase">HYPERTROPHY + STRENGTH</p></div>
             <div className="flex items-center gap-2">
               {saveStatus && <span className="text-emerald-400 text-xs font-mono animate-pulse">{saveStatus}</span>}
               {!supabaseRef.current && <span className="w-2 h-2 rounded-full bg-rose-500" title="Cloud not configured"></span>}
