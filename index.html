@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Tracker V4" />
-  <title>Workout Tracker V4</title>
+  <meta name="apple-mobile-web-app-title" content="Tracker V4.1" />
+  <title>Workout Tracker V4.1</title>
   
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V4</text></svg>">
-  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V4</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V4.1</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V4.1</text></svg>">
 
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -34,7 +34,7 @@
     // CONFIGURATION
     // ==========================================
     const SUPABASE_URL = 'https://pjhxdcugdnetzsswwvgh.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqaHhkY3VnZG5ldHpzc3d3dmdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwMzM3MTksImV4cCI6MjA4MjYwOTcxOX0.mAhyzvOO-ZLNiX0p7nuEhPSqzx-JoBvweJlwlzY9qwM';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqaHhkY3VnZG5ldHpzc3d3dmdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwMzM3MTksImV4.1cCI6MjA4MjYwOTcxOX0.mAhyzvOO-ZLNiX0p7nuEhPSqzx-JoBvweJlwlzY9qwM';
     // ==========================================
 
     // ---- 1. DEFINITIONS & DEFAULTS ----
@@ -56,7 +56,7 @@
       "d2_calf": { n: "Seated Calf", s: 3, r: "12-20", nt: "Soleus" },
       "d2_ham": { n: "Hamstring Curls", s: 1, r: "8-10", nt: "Maint" },
       "d2_rdl": { n: "Single-Leg RDL", s: 1, r: "8-12", nt: "RIGHT 1st" },
-      "d2_rot": { n: "Ext Rotations", s: 2, r: "6-10", nt: "Prehab" },
+      "d2_rot": { n: "Ext Rotations", s: 1, r: "10-15", nt: "Prehab" },
       "d2_drag": { n: "Dragon Flags", s: 2, r: "5-8", nt: "Lower abs" },
       // D3
       "dip_t": { n: "Dips (Top)", c: true, ct: "dips", st: "top", s: 1, r: "3-5", nt: "RPE 9" },
@@ -135,19 +135,19 @@
     };
 
     // Migration: Ensure settings have schedule/registry if loading old JSON
-const ensureStructure = (settings) => {
-  const s = { ...settings };
-  if (!s.schedule) s.schedule = DEFAULT_SCHEDULE;
-  if (!s.registry) {
-    s.registry = DEFAULT_REGISTRY;
-  } else {
-    // Merge registry - OVERWRITE names from defaults while keeping any custom entries
-    for (const key in DEFAULT_REGISTRY) {
-      s.registry[key] = { ...s.registry[key], ...DEFAULT_REGISTRY[key] };
-    }
-  }
-  return s;
-};
+    const ensureStructure = (settings) => {
+      const s = { ...settings };
+      if (!s.schedule) s.schedule = DEFAULT_SCHEDULE;
+      if (!s.registry) {
+        s.registry = DEFAULT_REGISTRY;
+      } else {
+        // Merge registry - OVERWRITE names from defaults while keeping any custom entries
+        for (const key in DEFAULT_REGISTRY) {
+          s.registry[key] = { ...s.registry[key], ...DEFAULT_REGISTRY[key] };
+        }
+      }
+      return s;
+    };
 
     // ---- 3. SUPABASE CLIENT WITH SECRET KEY ----
     const createSupabaseClient = (url, anonKey, secretKey) => {
@@ -329,6 +329,10 @@ const ensureStructure = (settings) => {
       // JSON editor state
       const [jsonEditMode, setJsonEditMode] = useState(false);
       const [jsonText, setJsonText] = useState('');
+
+      // Registry editor state
+      const [registryEditMode, setRegistryEditMode] = useState(false);
+      const [editingExercise, setEditingExercise] = useState(null);
       
       // Supabase client ref
       const supabaseRef = useRef(null);
@@ -591,6 +595,77 @@ const ensureStructure = (settings) => {
         return { sets: [], notes: '', _week: null };
       };
 
+      // ---- CSV EXPORT FUNCTION ----
+      const exportToCSV = () => {
+        const rows = [];
+        // Header
+        rows.push(['Week', 'Day', 'Date', 'Duration (min)', 'Exercise ID', 'Exercise Name', 'Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5', 'Notes'].join(','));
+        
+        // Data rows
+        for (let w = 1; w <= 8; w++) {
+          for (let d = 1; d <= 6; d++) {
+            const data = workoutLogs[`${w}-${d}`];
+            if (!data) continue;
+            
+            const meta = data._meta || {};
+            const date = meta.date || '';
+            const duration = meta.duration || '';
+            
+            const entries = Object.entries(data).filter(([key]) => key !== '_meta');
+            
+            for (const [exId, exData] of entries) {
+              const exName = settings.registry[exId]?.n || exId;
+              const sets = exData.sets || [];
+              const notes = (exData.notes || '').replace(/,/g, ';').replace(/\n/g, ' '); // Escape commas and newlines
+              
+              // Pad sets to 5 columns
+              const setPadded = [];
+              for (let i = 0; i < 5; i++) {
+                setPadded.push((sets[i] || '').replace(/,/g, ';'));
+              }
+              
+              rows.push([
+                w,
+                d,
+                date,
+                duration,
+                exId,
+                `"${exName}"`,
+                ...setPadded,
+                `"${notes}"`
+              ].join(','));
+            }
+          }
+        }
+        
+        const csvContent = rows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `workout-logs-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+
+      // ---- REGISTRY EDITOR FUNCTIONS ----
+      const updateExercise = (exId, field, value) => {
+        const newRegistry = { ...settings.registry };
+        newRegistry[exId] = { ...newRegistry[exId], [field]: value };
+        saveSettingsDebounced({ ...settings, registry: newRegistry });
+      };
+
+      const getAllExerciseIds = () => {
+        // Get all unique exercise IDs from schedule
+        const ids = new Set();
+        Object.values(settings.schedule).forEach(dayExercises => {
+          dayExercises.forEach(id => ids.add(id));
+        });
+        return Array.from(ids);
+      };
+
       // Wendler Constants
       const wendlerStagger = {
         1: { bench: 1, ohp: 3, deadlift: 2, squat: 4 },
@@ -642,12 +717,115 @@ const ensureStructure = (settings) => {
 
       // ---- RENDERERS ----
 
+      // Exercise Editor Modal
+      const ExerciseEditorModal = ({ exId, onClose }) => {
+        const ex = settings.registry[exId] || {};
+        const [name, setName] = useState(ex.n || '');
+        const [sets, setSets] = useState(ex.s || 3);
+        const [reps, setReps] = useState(ex.r || '8-12');
+        const [notes, setNotes] = useState(ex.nt || '');
+
+        const handleSave = () => {
+          const newRegistry = { ...settings.registry };
+          newRegistry[exId] = { 
+            ...newRegistry[exId], 
+            n: name, 
+            s: parseInt(sets) || 3, 
+            r: reps, 
+            nt: notes 
+          };
+          saveSettingsDebounced({ ...settings, registry: newRegistry });
+          onClose();
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-stone-800 text-lg">Edit Exercise</h3>
+                <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-xl">×</button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Exercise ID</label>
+                  <div className="px-3 py-2 bg-stone-100 rounded-lg text-sm text-stone-500 font-mono">{exId}</div>
+                </div>
+                
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Name</label>
+                  <input 
+                    type="text" 
+                    value={name} 
+                    onChange={e => setName(e.target.value)}
+                    className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Sets</label>
+                    <input 
+                      type="number" 
+                      value={sets} 
+                      onChange={e => setSets(e.target.value)}
+                      className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Rep Range</label>
+                    <input 
+                      type="text" 
+                      value={reps} 
+                      onChange={e => setReps(e.target.value)}
+                      placeholder="8-12"
+                      className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm text-center"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Default Note</label>
+                  <input 
+                    type="text" 
+                    value={notes} 
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder="Cue or reminder"
+                    className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm"
+                  />
+                </div>
+
+                {(ex.w || ex.c) && (
+                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
+                    <p className="text-xs text-amber-700">
+                      {ex.w && "⚠️ Wendler exercise — sets/reps controlled by cycle"}
+                      {ex.c && "⚠️ Calisthenics exercise — load controlled in Streetlifting settings"}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button onClick={onClose} className="flex-1 py-2.5 text-sm font-bold text-stone-500 bg-stone-100 rounded-lg">Cancel</button>
+                <button onClick={handleSave} className="flex-1 py-2.5 text-sm font-bold text-white bg-stone-800 rounded-lg">Save</button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
       // 1. SETUP TAB
       const renderSetupTab = () => {
         const isConnected = supabaseRef.current !== null;
+        const allExercises = getAllExerciseIds();
         
         return (
           <div className="p-4 space-y-6 max-w-md mx-auto">
+            {/* Exercise Editor Modal */}
+            {editingExercise && (
+              <ExerciseEditorModal exId={editingExercise} onClose={() => setEditingExercise(null)} />
+            )}
+
             {/* Supabase Sync Card */}
             <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
               <div className="flex items-center gap-2 mb-4">
@@ -792,6 +970,70 @@ FOR ALL USING (
                 ))}
               </div>
             </div>
+
+            {/* Calisthenics Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+              <h2 className="font-bold text-stone-800 mb-4 text-lg">Streetlifting</h2>
+              {['dips', 'pullups', 'chinups'].map(ex => (
+                <div key={ex} className="mb-5 last:mb-0">
+                  <div className="flex justify-between items-baseline mb-2">
+                    <label className="text-xs font-bold text-stone-500 uppercase">{ex}</label>
+                    <span className="text-[10px] text-stone-400">Backoff: {calcBackoff(settings.calisthenics[ex]?.top||80, settings.calisthenics[ex]?.backoffPct||75)} lbs</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="number" placeholder="Top" value={settings.calisthenics[ex]?.top||''} onChange={e => saveSettingsDebounced({...settings, calisthenics: { ...settings.calisthenics, [ex]: { ...settings.calisthenics[ex], top: parseFloat(e.target.value)||0 } }})} className="w-full px-3 py-2 border border-stone-300 rounded-lg bg-stone-50 text-center font-bold" />
+                    <div className="relative">
+                      <input type="number" value={settings.calisthenics[ex]?.backoffPct||''} onChange={e => saveSettingsDebounced({...settings, calisthenics: { ...settings.calisthenics, [ex]: { ...settings.calisthenics[ex], backoffPct: parseFloat(e.target.value)||0 } }})} className="w-full px-3 py-2 pr-8 border border-stone-300 rounded-lg bg-stone-50 text-center font-bold" />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 font-bold">%</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Exercise Registry Editor Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-bold text-stone-800 text-lg">Exercise Registry</h2>
+                <span className="text-[10px] text-stone-400">{allExercises.length} exercises</span>
+              </div>
+              
+              <p className="text-xs text-stone-500 mb-4">Tap any exercise to edit name, sets, or rep range.</p>
+              
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {[1,2,3,4,5,6].map(day => (
+                  <div key={day}>
+                    <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wide py-2 sticky top-0 bg-white">
+                      Day {day} — {dayNames[day]}
+                    </div>
+                    {(settings.schedule[day] || []).map(exId => {
+                      const ex = settings.registry[exId];
+                      if (!ex) return null;
+                      return (
+                        <button
+                          key={exId}
+                          onClick={() => setEditingExercise(exId)}
+                          className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-stone-50 active:bg-stone-100 transition-colors flex justify-between items-center group"
+                        >
+                          <div>
+                            <span className="text-sm text-stone-800">{ex.n}</span>
+                            {(ex.w || ex.c) && (
+                              <span className={`ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded ${ex.w ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                {ex.w ? 'W' : 'C'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-stone-400">{ex.s}×{ex.r}</span>
+                            <span className="text-stone-300 group-hover:text-stone-500">→</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
             
             {/* Schedule Editor Card */}
             <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
@@ -818,34 +1060,34 @@ FOR ALL USING (
               )}
             </div>
 
-             {/* Calisthenics Card */}
-             <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
-              <h2 className="font-bold text-stone-800 mb-4 text-lg">Streetlifting</h2>
-              {['dips', 'pullups', 'chinups'].map(ex => (
-                <div key={ex} className="mb-5 last:mb-0">
-                  <div className="flex justify-between items-baseline mb-2">
-                    <label className="text-xs font-bold text-stone-500 uppercase">{ex}</label>
-                    <span className="text-[10px] text-stone-400">Backoff: {calcBackoff(settings.calisthenics[ex]?.top||80, settings.calisthenics[ex]?.backoffPct||75)} lbs</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="number" placeholder="Top" value={settings.calisthenics[ex]?.top||''} onChange={e => saveSettingsDebounced({...settings, calisthenics: { ...settings.calisthenics, [ex]: { ...settings.calisthenics[ex], top: parseFloat(e.target.value)||0 } }})} className="w-full px-3 py-2 border border-stone-300 rounded-lg bg-stone-50 text-center font-bold" />
-                    <div className="relative">
-                      <input type="number" value={settings.calisthenics[ex]?.backoffPct||''} onChange={e => saveSettingsDebounced({...settings, calisthenics: { ...settings.calisthenics, [ex]: { ...settings.calisthenics[ex], backoffPct: parseFloat(e.target.value)||0 } }})} className="w-full px-3 py-2 pr-8 border border-stone-300 rounded-lg bg-stone-50 text-center font-bold" />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 font-bold">%</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            {/* Export & Backup Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+              <h2 className="font-bold text-stone-800 mb-4 text-lg">Export & Backup</h2>
+              
+              <div className="space-y-3">
+                <button 
+                  onClick={exportToCSV}
+                  className="w-full bg-emerald-600 text-white py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 active:bg-emerald-800 transition-colors"
+                >
+                  <span>📊</span> Export Logs to CSV
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    const blob = new Blob([JSON.stringify({ settings, logs: workoutLogs, bw: bodyweightLogs, completed: completedSessions }, null, 2)], { type: 'application/json' });
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `backup-${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                  }} 
+                  className="w-full bg-stone-100 text-stone-700 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-stone-200 transition-colors"
+                >
+                  <span>💾</span> Download Full Backup (JSON)
+                </button>
+              </div>
+              
+              <p className="text-[10px] text-stone-400 mt-3 text-center">CSV exports your workout logs. JSON backup includes all settings.</p>
             </div>
 
-            {/* Backup */}
-            <div className="text-center pb-8">
-               <button onClick={() => {
-                  const blob = new Blob([JSON.stringify({ settings, logs: workoutLogs, bw: bodyweightLogs, completed: completedSessions }, null, 2)], { type: 'application/json' });
-                  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `backup-${new Date().toISOString().split('T')[0]}.json`;
-                  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                }} className="text-stone-400 text-xs underline decoration-stone-300 hover:text-stone-600">Download Backup</button>
-            </div>
+            <div className="h-8"></div>
           </div>
         );
       };
@@ -1119,7 +1361,7 @@ FOR ALL USING (
       return (
         <div className="min-h-screen pb-24 font-sans text-stone-900 selection:bg-stone-200">
           <div className="bg-stone-900 text-stone-50 px-5 py-4 flex justify-between items-center shadow-md sticky top-0 z-50">
-            <div><h1 className="text-base font-bold tracking-tight">Tracker V4</h1><p className="text-stone-500 text-[10px] font-medium tracking-wide uppercase">HYPERTROPHY + STRENGTH</p></div>
+            <div><h1 className="text-base font-bold tracking-tight">Tracker V4.1</h1><p className="text-stone-500 text-[10px] font-medium tracking-wide uppercase">HYPERTROPHY + STRENGTH</p></div>
             <div className="flex items-center gap-2">
               {saveStatus && <span className="text-emerald-400 text-xs font-mono animate-pulse">{saveStatus}</span>}
               {!supabaseRef.current && <span className="w-2 h-2 rounded-full bg-rose-500" title="Cloud not configured"></span>}
@@ -1149,5 +1391,4 @@ FOR ALL USING (
     ReactDOM.createRoot(document.getElementById('root')).render(<WorkoutTracker />);
   </script>
 </body>
-  
 </html>
