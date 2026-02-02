@@ -311,7 +311,7 @@
 
       // Config
       const [secretKey, setSecretKey] = useState(() => localStorage.getItem('v5-secret-key') || '');
-      const [userId, setUserId] = useState(() => localStorage.getItem('v5-user-id') || 'jay');
+      const [userId, setUserId] = useState(() => localStorage.getItem('v5-user-id') || 'jayV5');
 
       // Modals
       const [editingExercise, setEditingExercise] = useState(null);
@@ -770,7 +770,7 @@
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">User ID</label>
-                  <input type="text" placeholder="jay" value={userId} onChange={e => setUserId(e.target.value.trim())}
+                  <input type="text" placeholder="jayV5" value={userId} onChange={e => setUserId(e.target.value.trim())}
                     className="w-full px-4 py-3 border border-stone-300 rounded-lg text-sm font-mono bg-stone-50" />
                 </div>
               </div>
