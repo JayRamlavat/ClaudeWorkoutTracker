@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Tracker V4.1" />
+  <title>Workout Tracker V4.1</title>
+  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V4.1</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V4.1</text></svg>">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { -webkit-tap-highlight-color: transparent; background-color: #f5f5f4; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    input, select, textarea { font-size: 16px !important; outline: none !important; }
+    input:focus, textarea:focus, select:focus { border-color: #57534e !important; ring: 0 !important; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useCallback, useRef, useEffect, useMemo } = React;
+
+    // ==========================================
+    // CONFIGURATION
+    // ==========================================
+    const SUPABASE_URL = 'https://pjhxdcugdnetzsswwvgh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqaHhkY3VnZG5ldHpzc3d3dmdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwMzM3MTksImV4cCI6MjA4MjYwOTcxOX0.mAhyzvOO-ZLNiX0p7nuEhPSqzx-JoBvweJlwlzY9qwM';
+    // ==========================================
+
+    // ---- 1. DEFINITIONS & DEFAULTS ----
+    
+    // Default Registry: Defines WHAT the exercises are (Attributes)
+    const DEFAULT_REGISTRY = {
+      // D1
+      "bench": { n: "Bench Press", w: true, wl: "bench", s: 3, r: "cycle", nt: "AMRAP last" },
+      "d1_tbar": { n: "T-Bar Rows", s: 2, r: "4-6", nt: "Full ROM" },
+      "d1_inc": { n: "Incline DB Press", s: 2, r: "5-9", nt: "Tucked elbows" },
+      "d1_curl": { n: "EZ Bar Curls", s: 3, r: "6-10", nt: "Short head" },
+      "d1_push": { n: "Seated Tricep Pushdown", s: 3, r: "6-10", nt: "Lat/medial" },
+      "d6_lat": { n: "Machine Lateral Raises", s: 2, r: "6-10", nt: "Side delt" },
+      "d1_calf": { n: "Leg Press Calf", s: 2, r: "12-15", nt: "Full ROM" },
+      "d1_lowTrap": { n: "Lower Trap Cable raise", s: 1, r: "10-15", nt: "Lower Traps" },
+      // D2
+      "dead": { n: "Deadlift", w: true, wl: "deadlift", s: 3, r: "cycle", nt: "AMRAP last" },
+      "d2_pause": { n: "Pause Squat", s: 2, r: "4-8", nt: "2s pause" },
+      "d2_calf": { n: "Seated Calf", s: 3, r: "12-20", nt: "Soleus" },
+      "d2_ham": { n: "Hamstring Curls", s: 1, r: "8-10", nt: "Maint" },
+      "d2_rdl": { n: "Single-Leg RDL", s: 1, r: "8-12", nt: "RIGHT 1st" },
+      "d2_rot": { n: "Ext Rotations", s: 1, r: "10-15", nt: "Prehab" },
+      "d2_drag": { n: "Dragon Flags", s: 2, r: "5-8", nt: "Lower abs" },
+      // D3
+      "dip_t": { n: "Dips (Top)", c: true, ct: "dips", st: "top", s: 1, r: "3-5", nt: "RPE 9" },
+      "dip_b": { n: "Dips (Back)", c: true, ct: "dips", st: "backoff", s: 2, r: "6-8", nt: "~75%" },
+      "d3_preach": { n: "Preacher Curl", s: 3, r: "6-10", nt: "Short head" },
+      "d3_oh": { n: "OH Cable Ext", s: 3, r: "8-12", nt: "Long head" },
+      "d3_inc": { n: "Inc DB Curls", s: 3, r: "8-12", nt: "Long head" },
+      "d3_lat": { n: "Cable Laterals", s: 3, r: "10-12", nt: "Side delt" },
+      "d3_rev": { n: "Rev Pec Deck", s: 3, r: "8-12", nt: "Rear delt" },
+      // D4
+      "pull_t": { n: "Pull-ups (Top)", c: true, ct: "pullups", st: "top", s: 1, r: "3-5", nt: "RPE 9" },
+      "pull_b": { n: "Pull-ups (Back)", c: true, ct: "pullups", st: "backoff", s: 2, r: "6-8", nt: "~75%" },
+      "d4_flat": { n: "Flat DB Press", s: 2, r: "4-8", nt: "45° elbows" },
+      "d4_row": { n: "BB Row", s: 2, r: "5-8", nt: "Pause" },
+      "d4_inc": { n: "Inc Press Mach", s: 1, r: "6-10", nt: "Chest" },
+      "d4_pec": { n: "Pec Deck", s: 2, r: "8-11", nt: "Iso" },
+      "d4_ql": { n: "QL Ext", s: 1, r: "12-15", nt: "LEFT 1st" },
+      "d6_dhg": { n: "Dead Hangs", s: 1, r: "1-3 min", nt: "Mobility" },
+      // D5
+      "squat": { n: "Squat", w: true, wl: "squat", s: 3, r: "cycle", nt: "AMRAP last" },
+      "d5_rdl": { n: "RDL", s: 2, r: "5-8", nt: "Post chain" },
+      "d5_ext": { n: "Leg Ext", s: 2, r: "6-10", nt: "Quad Maint" },
+      "d5_calf": { n: "Stand Calf", s: 3, r: "8-15", nt: "Gastroc" },
+      "d5_leg": { n: "Hanging Leg Raises", s: 2, r: "6-10", nt: "Lower abs" },
+      "d5_abs": { n: "Abs Machine", s: 2, r: "6-10", nt: "Core" },
+      "d5_lbackext": { n: "Back Extensions", s: 1, r: "8-12", nt: "Lower Back" },
+      // D6
+      "chin_t": { n: "Chins (Top)", c: true, ct: "chinups", st: "top", s: 1, r: "3-5", nt: "Check Int" },
+      "chin_b": { n: "Chins (Back)", c: true, ct: "chinups", st: "backoff", s: 2, r: "6-8", nt: "~75%" },
+      "ohp": { n: "OHP", w: true, wl: "ohp", s: 3, r: "cycle", nt: "AMRAP last" },
+      "d6_vbar": { n: "EZ-Bar Pushdowns", s: 3, r: "6-10", nt: "Lat/medial" },
+      "d6_bay": { n: "Bayesian Curl", s: 3, r: "8-12", nt: "Long head" },
+      "d6_spider": { n: "Spider Curl", s: 2, r: "8-12", nt: "Short head" },
+      "d1_lat": { n: "Lateral Raises", s: 2, r: "8-12", nt: "Side delt" },
+      "d6_face": { n: "Face Pulls", s: 2, r: "15-20", nt: "Rear delt" }
+    };
+
+    // Default Schedule: Defines WHERE the exercises happen (Order)
+    const DEFAULT_SCHEDULE = {
+      1: ["bench", "d1_tbar", "d1_inc", "d1_curl", "d1_push", "d6_lat", "d1_calf","d1_lowTrap"],
+      2: ["dead", "d2_pause", "d2_calf", "d2_ham", "d2_rdl", "d2_rot", "d2_drag"],
+      3: ["dip_t", "dip_b", "d3_preach", "d3_oh", "d3_inc", "d3_lat", "d3_rev"],
+      4: ["pull_t", "pull_b", "d4_flat", "d4_row", "d4_inc", "d4_pec", "d4_ql","d6_dhg"],
+      5: ["squat", "d5_rdl", "d5_ext", "d5_calf", "d5_leg", "d5_abs","d5_lbackext"],
+      6: ["chin_t", "chin_b", "ohp", "d6_vbar", "d6_bay", "d6_spider", "d1_lat", "d6_face"]
+    };
+
+    const defaultSettings = {
+      wendlerTM: { bench: 205, squat: 290, deadlift: 375, ohp: 120 },
+      calisthenics: {
+        dips: { top: 80, backoffPct: 75 },
+        pullups: { top: 80, backoffPct: 75 },
+        chinups: { top: 90, backoffPct: 72 }
+      },
+      schedule: DEFAULT_SCHEDULE,
+      registry: DEFAULT_REGISTRY,
+      bodyweight: 155,
+      _updated: 0
+    };
+
+    // ---- 2. HELPERS ----
+    const parseFirstNumber = (s) => {
+      if (s == null) return null;
+      const m = String(s).match(/-?\d+(\.\d+)?/);
+      return m ? Number(m[0]) : null;
+    };
+    const isFilled = (s) => (s ?? "").toString().trim().length > 0;
+    const calcBackoff = (top, pct) => Math.round((top * pct / 100) / 5) * 5;
+    
+    const mergeData = (local, cloud) => {
+      if (!cloud) return local;
+      if (!local) return cloud;
+      const cloudTime = cloud._updated || 0;
+      const localTime = local._updated || 0;
+      return cloudTime > localTime ? cloud : local;
+    };
+
+    // Migration: Ensure settings have schedule/registry if loading old JSON
+    const ensureStructure = (settings) => {
+      const s = { ...settings };
+      if (!s.schedule) s.schedule = DEFAULT_SCHEDULE;
+      if (!s.registry) {
+        s.registry = DEFAULT_REGISTRY;
+      } else {
+        // Merge registry - OVERWRITE names from defaults while keeping any custom entries
+        for (const key in DEFAULT_REGISTRY) {
+          s.registry[key] = { ...s.registry[key], ...DEFAULT_REGISTRY[key] };
+        }
+      }
+      return s;
+    };
+
+    // ---- 3. SUPABASE CLIENT WITH SECRET KEY ----
+    const createSupabaseClient = (url, anonKey, secretKey) => {
+      const baseUrl = url.replace(/\/$/, '');
+      
+      const request = async (table, method, body = null, query = '') => {
+        const headers = {
+          'apikey': anonKey,
+          'Authorization': `Bearer ${anonKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': method === 'POST' ? 'return=representation,resolution=merge-duplicates' : 'return=representation',
+          'x-secret-key': secretKey // Pass secret in header for RLS
+        };
+        
+        const options = { method, headers };
+        if (body) options.body = JSON.stringify(body);
+        
+        const res = await fetch(`${baseUrl}/rest/v1/${table}${query}`, options);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Supabase error: ${res.status} - ${text}`);
+        }
+        return res.json();
+      };
+      
+      return {
+        // Get all data for a user (RLS filters by secret)
+        getData: async (userId) => {
+          const data = await request('workout_data', 'GET', null, `?user_id=eq.${userId}&select=*`);
+          return data[0] || null;
+        },
+        
+        // Upsert (insert or update) data - includes secret_key for RLS
+        upsertData: async (userId, payload) => {
+          return request('workout_data', 'POST', {
+            user_id: userId,
+            secret_key: secretKey,
+            settings: payload.settings,
+            logs: payload.logs,
+            completed: payload.completed,
+            bodyweight: payload.bw,
+            updated_at: new Date().toISOString()
+          });
+        },
+        
+        // Test connection
+        testConnection: async (userId) => {
+          try {
+            await request('workout_data', 'GET', null, `?user_id=eq.${userId}&select=user_id`);
+            return { success: true };
+          } catch (e) {
+            return { success: false, error: e.message };
+          }
+        }
+      };
+    };
+
+    // ---- 4. COMPONENTS ----
+    const ExerciseInput = React.memo(({ placeholder, initialValue, lastValue, onSave, setIndex }) => {
+      const [value, setValue] = useState(initialValue);
+      const isEditingRef = useRef(false);
+      useEffect(() => { if (!isEditingRef.current) setValue(initialValue); }, [initialValue]);
+
+      const lastW = parseFirstNumber(lastValue);
+      const currW = parseFirstNumber(value);
+      const delta = (lastW != null && currW != null) ? (currW - lastW) : null;
+      const showDelta = delta != null && delta !== 0;
+      const deltaClass = !showDelta ? "text-stone-300" : delta > 0 ? "text-emerald-600" : "text-rose-600";
+      
+      const displayText = value || placeholder || '---';
+      const charCount = Math.max(6, displayText.length + 1);
+      const inputWidth = `calc(${charCount}ch + 1rem)`;
+
+      return (
+        <div className="inline-flex flex-col mb-1">
+          <span className="text-[9px] text-stone-400 font-medium mb-0.5 ml-1">S{setIndex + 1}</span>
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              placeholder={placeholder}
+              value={value}
+              onFocus={() => { isEditingRef.current = true; }}
+              onChange={e => setValue(e.target.value)}
+              onBlur={() => { isEditingRef.current = false; onSave(value); }}
+              className="px-3 py-2.5 text-sm border-2 border-stone-200 rounded-lg bg-stone-50 text-stone-800 focus:border-stone-400 focus:bg-white transition-colors font-mono"
+              style={{ width: inputWidth, minWidth: '5rem', maxWidth: '100%' }} 
+            />
+            {isFilled(lastValue) && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { setValue(lastValue); onSave(lastValue); }}
+                className="w-8 h-8 flex-shrink-0 flex items-center justify-center text-stone-400 hover:text-stone-600 active:bg-stone-200 rounded-lg border border-stone-200 bg-stone-50"
+                title="Copy Last"
+              >📋</button>
+            )}
+          </div>
+          <div className={`text-[9px] font-bold mt-0.5 ml-1 h-3 ${deltaClass}`}>
+            {showDelta ? (delta > 0 ? `+${delta}` : `${delta}`) : ""}
+          </div>
+        </div>
+      );
+    });
+
+    const NotesInput = React.memo(({ placeholder, initialValue, lastValue, onSave }) => {
+      const [value, setValue] = useState(initialValue);
+      const isEditingRef = useRef(false);
+      const textareaRef = useRef(null);
+      
+      useEffect(() => { if (!isEditingRef.current) setValue(initialValue); }, [initialValue]);
+      useEffect(() => {
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+          textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+        }
+      }, [value]);
+
+      return (
+        <div className="relative mt-3">
+          <textarea
+            ref={textareaRef}
+            rows={1}
+            placeholder={placeholder}
+            value={value}
+            onFocus={() => { isEditingRef.current = true; }}
+            onChange={e => setValue(e.target.value)}
+            onBlur={() => { isEditingRef.current = false; onSave(value); }}
+            className="w-full px-3 py-2 text-sm border-2 border-stone-100 rounded-lg text-stone-600 resize-none overflow-hidden block min-h-[40px] leading-snug bg-transparent focus:bg-white focus:border-stone-300 transition-colors placeholder-stone-400"
+            style={{ paddingRight: isFilled(lastValue) ? '2rem' : '0.5rem' }}
+          />
+          {isFilled(lastValue) && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { setValue(lastValue); onSave(lastValue); }}
+              className="absolute right-1 top-1.5 w-6 h-6 flex items-center justify-center text-stone-400 hover:text-stone-600 active:bg-stone-100 rounded"
+            >📋</button>
+          )}
+        </div>
+      );
+    });
+
+    // ---- 5. MAIN APP ----
+    const WorkoutTracker = () => {
+      
+      // Auto-Start Logic
+      const getSmartStart = () => {
+        try {
+          const comp = JSON.parse(localStorage.getItem('jay-completed-sessions') || '{}');
+          for (let w = 1; w <= 8; w++) {
+            for (let d = 1; d <= 6; d++) {
+              if (!comp[`${w}-${d}`]) return { w, d };
+            }
+          }
+          return { w: 1, d: 1 };
+        } catch (e) { return { w: 1, d: 1 }; }
+      };
+      const startLoc = useMemo(() => getSmartStart(), []);
+
+      // State
+      const [activeTab, setActiveTab] = useState('workout');
+      const [currentWeek, setCurrentWeek] = useState(startLoc.w);
+      const [activeDay, setActiveDay] = useState(startLoc.d);
+      const [saveStatus, setSaveStatus] = useState('');
+      
+      // Config - URL and anon key can be hardcoded, secret is stored locally
+      const [secretKey, setSecretKey] = useState(() => localStorage.getItem('jay-secret-key') || '');
+      const [userId, setUserId] = useState(() => localStorage.getItem('jay-user-id') || 'jay');
+      
+      // For manual config if not hardcoded
+      const [manualUrl, setManualUrl] = useState(() => localStorage.getItem('jay-supabase-url') || '');
+      const [manualAnonKey, setManualAnonKey] = useState(() => localStorage.getItem('jay-supabase-anon') || '');
+      
+      // Determine which config to use
+      const activeUrl = SUPABASE_URL || manualUrl;
+      const activeAnonKey = SUPABASE_ANON_KEY || manualAnonKey;
+      const isHardcoded = SUPABASE_URL && SUPABASE_ANON_KEY;
+      
+      // JSON editor state
+      const [jsonEditMode, setJsonEditMode] = useState(false);
+      const [jsonText, setJsonText] = useState('');
+
+      // Registry editor state
+      const [registryEditMode, setRegistryEditMode] = useState(false);
+      const [editingExercise, setEditingExercise] = useState(null);
+      
+      // Supabase client ref
+      const supabaseRef = useRef(null);
+      
+      useEffect(() => {
+        if (activeUrl && activeAnonKey && secretKey) {
+          supabaseRef.current = createSupabaseClient(activeUrl, activeAnonKey, secretKey);
+        } else {
+          supabaseRef.current = null;
+        }
+      }, [activeUrl, activeAnonKey, secretKey]);
+
+      const [settings, setSettings] = useState(() => {
+        try { 
+          const raw = JSON.parse(localStorage.getItem('jay-settings')) || defaultSettings;
+          return ensureStructure(raw);
+        } catch (e) { return defaultSettings; }
+      });
+
+      const [workoutLogs, setWorkoutLogs] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('jay-workout-logs')) || { _updated: 0 }; } catch(e) { return { _updated: 0 }; }
+      });
+
+      const [completedSessions, setCompletedSessions] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('jay-completed-sessions')) || {}; } catch(e) { return {}; }
+      });
+
+      const [bodyweightLogs, setBodyweightLogs] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('jay-bodyweight-logs')) || []; } catch(e) { return []; }
+      });
+
+      const [newWeight, setNewWeight] = useState('');
+      const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
+
+      // Sync jsonText when settings.schedule changes or when entering edit mode
+      useEffect(() => {
+        if (jsonEditMode) {
+          setJsonText(JSON.stringify(settings.schedule, null, 2));
+        }
+      }, [jsonEditMode, settings.schedule]);
+
+      // Ref for Cloud Sync
+      const stateRef = useRef({ workoutLogs, settings, completedSessions, bodyweightLogs });
+      useEffect(() => { stateRef.current = { workoutLogs, settings, completedSessions, bodyweightLogs }; }, [workoutLogs, settings, completedSessions, bodyweightLogs]);
+
+      // Cloud Logic - Supabase
+      useEffect(() => {
+        if (!supabaseRef.current || !userId) return;
+        
+        const loadCloudData = async () => {
+          try {
+            setSaveStatus('Syncing... ☁️');
+            const data = await supabaseRef.current.getData(userId);
+            
+            if (data) {
+              if (data.settings) {
+                const migrated = ensureStructure(data.settings);
+                const merged = mergeData(settings, migrated);
+                setSettings(merged);
+                localStorage.setItem('jay-settings', JSON.stringify(merged));
+              }
+              if (data.logs) {
+                const merged = mergeData(workoutLogs, data.logs);
+                setWorkoutLogs(merged);
+                localStorage.setItem('jay-workout-logs', JSON.stringify(merged));
+              }
+              if (data.completed) {
+                const merged = { ...completedSessions, ...data.completed };
+                setCompletedSessions(merged);
+                localStorage.setItem('jay-completed-sessions', JSON.stringify(merged));
+              }
+              if (data.bodyweight) {
+                const combined = [...bodyweightLogs, ...data.bodyweight];
+                const unique = Array.from(new Map(combined.map(item => [item.date, item])).values()).sort((a,b) => new Date(a.date) - new Date(b.date));
+                setBodyweightLogs(unique);
+                localStorage.setItem('jay-bodyweight-logs', JSON.stringify(unique));
+              }
+            }
+            setSaveStatus('Synced ✓');
+            setTimeout(() => setSaveStatus(''), 2000);
+          } catch (e) { 
+            console.error("Cloud load error:", e); 
+            setSaveStatus('Sync Error ❌');
+            setTimeout(() => setSaveStatus(''), 3000);
+          }
+        };
+        loadCloudData();
+      }, [activeUrl, activeAnonKey, secretKey, userId]);
+
+      const pushToCloud = async () => {
+        if (!supabaseRef.current || !userId) return;
+        const s = stateRef.current;
+        try {
+          await supabaseRef.current.upsertData(userId, {
+            settings: s.settings,
+            logs: s.workoutLogs,
+            completed: s.completedSessions,
+            bw: s.bodyweightLogs
+          });
+          setSaveStatus('Saved ✓');
+          setTimeout(() => setSaveStatus(''), 2000);
+        } catch (e) {
+          console.error("Cloud save error:", e);
+          setSaveStatus('Save Error ❌');
+          setTimeout(() => setSaveStatus(''), 3000);
+        }
+      };
+
+      const forcePull = async () => {
+        if (!supabaseRef.current || !userId) return alert("Configure Supabase first");
+        if (!confirm("OVERWRITE local data with Cloud data?")) return;
+        setSaveStatus('Pulling... ⏬');
+        try {
+          const data = await supabaseRef.current.getData(userId);
+          if (!data) throw new Error("No data found in cloud (check secret key)");
+          
+          localStorage.removeItem('jay-settings');
+          localStorage.removeItem('jay-workout-logs');
+          localStorage.removeItem('jay-completed-sessions');
+          localStorage.removeItem('jay-bodyweight-logs');
+
+          if(data.settings) localStorage.setItem('jay-settings', JSON.stringify(ensureStructure(data.settings)));
+          if(data.logs) localStorage.setItem('jay-workout-logs', JSON.stringify(data.logs));
+          if(data.completed) localStorage.setItem('jay-completed-sessions', JSON.stringify(data.completed));
+          if(data.bodyweight) localStorage.setItem('jay-bodyweight-logs', JSON.stringify(data.bodyweight));
+          
+          alert("Success! Reloading...");
+          window.location.reload();
+        } catch (e) { 
+          alert("Failed: " + e.message); 
+          setSaveStatus('Error ❌'); 
+        }
+      };
+
+      // Auto-save every 60 seconds
+      useEffect(() => {
+        if (!supabaseRef.current || !userId) return;
+        const intervalId = setInterval(() => { 
+          setSaveStatus('Auto-Saving... ⚡'); 
+          pushToCloud(); 
+        }, 60000);
+        return () => clearInterval(intervalId);
+      }, [activeUrl, activeAnonKey, secretKey, userId]);
+
+      // Save Helpers
+      const saveTimeout = useRef(null);
+      const saveSettingsDebounced = useCallback((s) => {
+        const payload = { ...s, _updated: Date.now() };
+        setSettings(payload);
+        localStorage.setItem('jay-settings', JSON.stringify(payload));
+        if (saveTimeout.current) clearTimeout(saveTimeout.current);
+        saveTimeout.current = setTimeout(() => pushToCloud(), 2000);
+      }, [activeUrl, activeAnonKey, secretKey, userId]);
+
+      const saveLogsDebounced = useCallback((l) => {
+        const payload = { ...l, _updated: Date.now() };
+        setWorkoutLogs(payload);
+        localStorage.setItem('jay-workout-logs', JSON.stringify(payload));
+        if (saveTimeout.current) clearTimeout(saveTimeout.current);
+        saveTimeout.current = setTimeout(() => pushToCloud(), 2000);
+      }, [activeUrl, activeAnonKey, secretKey, userId]);
+
+      const saveCompletion = (c) => {
+        setCompletedSessions(c);
+        localStorage.setItem('jay-completed-sessions', JSON.stringify(c));
+        pushToCloud();
+      };
+
+      const saveBW = (l) => {
+        setBodyweightLogs(l);
+        localStorage.setItem('jay-bodyweight-logs', JSON.stringify(l));
+        pushToCloud();
+      };
+
+      const handleFinishDay = () => {
+        const key = `${currentWeek}-${activeDay}`;
+        saveCompletion({ ...completedSessions, [key]: true });
+        let nextW = currentWeek, nextD = activeDay + 1;
+        if (nextD > 6) { nextD = 1; nextW = currentWeek + 1; }
+        if (nextW > 8) { alert("Cycle Complete!"); return; }
+        setCurrentWeek(nextW);
+        setActiveDay(nextD);
+        window.scrollTo(0,0);
+      };
+
+      const deleteDayEntry = (w, d) => {
+        if (!confirm(`Clear Week ${w} Day ${d}?`)) return;
+        const newLogs = { ...workoutLogs, _updated: Date.now() };
+        delete newLogs[`${w}-${d}`];
+        saveLogsDebounced(newLogs);
+        const newComp = { ...completedSessions };
+        delete newComp[`${w}-${d}`];
+        saveCompletion(newComp);
+      };
+
+      const deleteWeekEntry = (w) => {
+        if (!confirm(`Delete Week ${w}?`) ) return;
+        const newLogs = { ...workoutLogs, _updated: Date.now() };
+        const newComp = { ...completedSessions };
+        for (let d = 1; d <= 6; d++) {
+           delete newLogs[`${w}-${d}`];
+           delete newComp[`${w}-${d}`];
+        }
+        saveLogsDebounced(newLogs);
+        saveCompletion(newComp);
+      };
+
+      // Data Access
+      const logSet = (w, d, ex, i, v) => {
+        const k = `${w}-${d}`;
+        const nl = { ...workoutLogs };
+        if (!nl[k]) nl[k] = {};
+        if (!nl[k][ex]) nl[k][ex] = { sets: [], notes: '' };
+        nl[k][ex].sets[i] = v;
+        saveLogsDebounced(nl);
+      };
+
+      const logNotes = (w, d, ex, v) => {
+        const k = `${w}-${d}`;
+        const nl = { ...workoutLogs };
+        if (!nl[k]) nl[k] = {};
+        if (!nl[k][ex]) nl[k][ex] = { sets: [], notes: '' };
+        nl[k][ex].notes = v;
+        saveLogsDebounced(nl);
+      };
+
+      const getLog = (w, d, ex) => workoutLogs[`${w}-${d}`]?.[ex] || { sets: [], notes: '' };
+
+      // Session Metadata (date + duration)
+      const getSessionMeta = (w, d) => workoutLogs[`${w}-${d}`]?._meta || { date: '', duration: '' };
+      
+      const saveSessionMeta = (w, d, field, value) => {
+        const k = `${w}-${d}`;
+        const nl = { ...workoutLogs };
+        if (!nl[k]) nl[k] = {};
+        if (!nl[k]._meta) nl[k]._meta = { date: '', duration: '' };
+        nl[k]._meta[field] = value;
+        saveLogsDebounced(nl);
+      };
+
+      // Jump to Edit from Logbook
+      const jumpToSession = (w, d) => {
+        setCurrentWeek(w);
+        setActiveDay(d);
+        setActiveTab('workout');
+        window.scrollTo(0, 0);
+      };
+
+      // SMART HISTORY SEARCH: Finds the most recent log for an Exercise ID across ALL past days
+      const getPrevLog = (w, d, exId) => {
+        for (let wk = w; wk >= 1; wk--) {
+          const startDay = (wk === w) ? (d - 1) : 6;
+          for (let dy = startDay; dy >= 1; dy--) {
+             const log = workoutLogs[`${wk}-${dy}`]?.[exId];
+             if (log && (log.sets?.some(isFilled) || isFilled(log.notes))) {
+               return { ...log, _week: wk, _day: dy };
+             }
+          }
+        }
+        return { sets: [], notes: '', _week: null };
+      };
+
+      // ---- CSV EXPORT FUNCTION ----
+      const exportToCSV = () => {
+        const rows = [];
+        // Header
+        rows.push(['Week', 'Day', 'Date', 'Duration (min)', 'Exercise ID', 'Exercise Name', 'Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5', 'Notes'].join(','));
+        
+        // Data rows
+        for (let w = 1; w <= 8; w++) {
+          for (let d = 1; d <= 6; d++) {
+            const data = workoutLogs[`${w}-${d}`];
+            if (!data) continue;
+            
+            const meta = data._meta || {};
+            const date = meta.date || '';
+            const duration = meta.duration || '';
+            
+            const entries = Object.entries(data).filter(([key]) => key !== '_meta');
+            
+            for (const [exId, exData] of entries) {
+              const exName = settings.registry[exId]?.n || exId;
+              const sets = exData.sets || [];
+              const notes = (exData.notes || '').replace(/,/g, ';').replace(/\n/g, ' '); // Escape commas and newlines
+              
+              // Pad sets to 5 columns
+              const setPadded = [];
+              for (let i = 0; i < 5; i++) {
+                setPadded.push((sets[i] || '').replace(/,/g, ';'));
+              }
+              
+              rows.push([
+                w,
+                d,
+                date,
+                duration,
+                exId,
+                `"${exName}"`,
+                ...setPadded,
+                `"${notes}"`
+              ].join(','));
+            }
+          }
+        }
+        
+        const csvContent = rows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `workout-logs-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+
+      // ---- REGISTRY EDITOR FUNCTIONS ----
+      const updateExercise = (exId, field, value) => {
+        const newRegistry = { ...settings.registry };
+        newRegistry[exId] = { ...newRegistry[exId], [field]: value };
+        saveSettingsDebounced({ ...settings, registry: newRegistry });
+      };
+
+      const getAllExerciseIds = () => {
+        // Get all unique exercise IDs from schedule
+        const ids = new Set();
+        Object.values(settings.schedule).forEach(dayExercises => {
+          dayExercises.forEach(id => ids.add(id));
+        });
+        return Array.from(ids);
+      };
+
+      // Wendler Constants
+      const wendlerStagger = {
+        1: { bench: 1, ohp: 3, deadlift: 2, squat: 4 },
+        2: { bench: 2, ohp: 4, deadlift: 3, squat: 1 },
+        3: { bench: 3, ohp: 1, deadlift: 4, squat: 2 },
+        4: { bench: 4, ohp: 2, deadlift: 1, squat: 3 },
+        5: { bench: 1, ohp: 3, deadlift: 2, squat: 4 },
+        6: { bench: 2, ohp: 4, deadlift: 3, squat: 1 },
+        7: { bench: 3, ohp: 1, deadlift: 4, squat: 2 },
+        8: { bench: 4, ohp: 2, deadlift: 1, squat: 3 }
+      };
+      const wendlerPcts = {
+        1: [{ p: 0.65, r: '5' }, { p: 0.75, r: '5' }, { p: 0.85, r: '5+' }],
+        2: [{ p: 0.70, r: '3' }, { p: 0.80, r: '3' }, { p: 0.90, r: '3+' }],
+        3: [{ p: 0.75, r: '5' }, { p: 0.85, r: '3' }, { p: 0.95, r: '1+' }],
+        4: [{ p: 0.40, r: '5' }, { p: 0.50, r: '5' }, { p: 0.60, r: '5' }]
+      };
+      const weekNames = { 1: '5s', 2: '3s', 3: '531', 4: 'Dl' };
+      const calcWt = (tm, p) => Math.round(tm * p / 5) * 5;
+      const getChinIntensity = (w) => {
+        const ohp = wendlerStagger[w].ohp;
+        if (ohp === 4) return { t: 'Push Hard', c: 'bg-emerald-100 text-emerald-800' };
+        if (ohp === 3) return { t: 'Cap RPE 8', c: 'bg-rose-100 text-rose-800' };
+        return { t: 'Normal', c: 'bg-stone-200 text-stone-700' };
+      };
+      const dayNames = { 1: 'Upper Power', 2: 'Lower + Core', 3: 'Arms + Delts', 4: 'Upper Volume', 5: 'Lower Maint', 6: 'Arms + Delts' };
+
+      // JSON Editor handlers
+      const handleJsonSave = () => {
+        try {
+          const newSchedule = JSON.parse(jsonText);
+          saveSettingsDebounced({ ...settings, schedule: newSchedule });
+          setJsonEditMode(false);
+          alert("Schedule Updated!");
+        } catch(e) { alert("Invalid JSON: " + e.message); }
+      };
+
+      // Save config
+      const saveConfig = () => {
+        localStorage.setItem('jay-secret-key', secretKey);
+        localStorage.setItem('jay-user-id', userId);
+        if (!isHardcoded) {
+          localStorage.setItem('jay-supabase-url', manualUrl);
+          localStorage.setItem('jay-supabase-anon', manualAnonKey);
+        }
+        alert('Config saved! Reload to sync.');
+        window.location.reload();
+      };
+
+      // ---- RENDERERS ----
+
+      // Exercise Editor Modal
+      const ExerciseEditorModal = ({ exId, onClose }) => {
+        const ex = settings.registry[exId] || {};
+        const [name, setName] = useState(ex.n || '');
+        const [sets, setSets] = useState(ex.s || 3);
+        const [reps, setReps] = useState(ex.r || '8-12');
+        const [notes, setNotes] = useState(ex.nt || '');
+
+        const handleSave = () => {
+          const newRegistry = { ...settings.registry };
+          newRegistry[exId] = { 
+            ...newRegistry[exId], 
+            n: name, 
+            s: parseInt(sets) || 3, 
+            r: reps, 
+            nt: notes 
+          };
+          saveSettingsDebounced({ ...settings, registry: newRegistry });
+          onClose();
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-stone-800 text-lg">Edit Exercise</h3>
+                <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-xl">×</button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Exercise ID</label>
+                  <div className="px-3 py-2 bg-stone-100 rounded-lg text-sm text-stone-500 font-mono">{exId}</div>
+                </div>
+                
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Name</label>
+                  <input 
+                    type="text" 
+                    value={name} 
+                    onChange={e => setName(e.target.value)}
+                    className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Sets</label>
+                    <input 
+                      type="number" 
+                      value={sets} 
+                      onChange={e => setSets(e.target.value)}
+                      className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Rep Range</label>
+                    <input 
+                      type="text" 
+                      value={reps} 
+                      onChange={e => setReps(e.target.value)}
+                      placeholder="8-12"
+                      className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm text-center"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Default Note</label>
+                  <input 
+                    type="text" 
+                    value={notes} 
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder="Cue or reminder"
+                    className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm"
+                  />
+                </div>
+
+                {(ex.w || ex.c) && (
+                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
+                    <p className="text-xs text-amber-700">
+                      {ex.w && "⚠️ Wendler exercise — sets/reps controlled by cycle"}
+                      {ex.c && "⚠️ Calisthenics exercise — load controlled in Streetlifting settings"}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button onClick={onClose} className="flex-1 py-2.5 text-sm font-bold text-stone-500 bg-stone-100 rounded-lg">Cancel</button>
+                <button onClick={handleSave} className="flex-1 py-2.5 text-sm font-bold text-white bg-stone-800 rounded-lg">Save</button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // 1. SETUP TAB
+      const renderSetupTab = () => {
+        const isConnected = supabaseRef.current !== null;
+        const allExercises = getAllExerciseIds();
+        
+        return (
+          <div className="p-4 space-y-6 max-w-md mx-auto">
+            {/* Exercise Editor Modal */}
+            {editingExercise && (
+              <ExerciseEditorModal exId={editingExercise} onClose={() => setEditingExercise(null)} />
+            )}
+
+            {/* Supabase Sync Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <h2 className="font-bold text-stone-800 text-lg">Cloud Sync</h2>
+                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">Supabase</span>
+              </div>
+              
+              <div className="space-y-3">
+                {/* Show URL/Key fields only if not hardcoded */}
+                {!isHardcoded && (
+                  <>
+                    <div>
+                      <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Project URL</label>
+                      <input 
+                        type="text" 
+                        placeholder="https://xxxxx.supabase.co" 
+                        value={manualUrl} 
+                        onChange={e => setManualUrl(e.target.value.trim())}
+                        className="w-full px-4 py-3 border border-stone-300 rounded-lg text-sm font-mono bg-stone-50" 
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Anon Key</label>
+                      <input 
+                        type="text" 
+                        placeholder="eyJhbGciOiJIUzI1NiIs..." 
+                        value={manualAnonKey} 
+                        onChange={e => setManualAnonKey(e.target.value.trim())}
+                        className="w-full px-4 py-3 border border-stone-300 rounded-lg text-sm font-mono bg-stone-50" 
+                      />
+                    </div>
+                  </>
+                )}
+                
+                {isHardcoded && (
+                  <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                    <p className="text-xs text-emerald-700">✓ Supabase URL & Key are configured in code</p>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">
+                    Secret Key <span className="text-rose-500">*</span>
+                  </label>
+                  <input 
+                    type="password" 
+                    placeholder="Your private secret (never share!)" 
+                    value={secretKey} 
+                    onChange={e => setSecretKey(e.target.value.trim())}
+                    className="w-full px-4 py-3 border border-stone-300 rounded-lg text-sm font-mono bg-stone-50" 
+                  />
+                  <p className="text-[10px] text-stone-400 mt-1">This protects your data. Store it safely!</p>
+                </div>
+                
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">User ID</label>
+                  <input 
+                    type="text" 
+                    placeholder="jay" 
+                    value={userId} 
+                    onChange={e => setUserId(e.target.value.trim())}
+                    className="w-full px-4 py-3 border border-stone-300 rounded-lg text-sm font-mono bg-stone-50" 
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-4 items-center">
+                {isConnected ? (
+                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Connected</span>
+                ) : (
+                  <span className="text-xs text-stone-400">{secretKey ? 'Missing URL/Key' : 'Enter Secret Key'}</span>
+                )}
+                <button 
+                  onClick={saveConfig}
+                  className="ml-auto text-xs font-bold text-stone-600 bg-stone-100 px-3 py-1.5 rounded hover:bg-stone-200"
+                >
+                  Save Config
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                <button 
+                  onClick={() => { if(!isConnected) return alert("Enter secret key first"); pushToCloud(); }} 
+                  className="bg-stone-800 text-stone-100 text-xs font-bold px-2 py-3 rounded-lg disabled:opacity-50"
+                  disabled={!isConnected}
+                >
+                  Push (Local → Cloud)
+                </button>
+                <button 
+                  onClick={forcePull} 
+                  className="bg-white border-2 border-stone-800 text-stone-900 text-xs font-bold px-2 py-3 rounded-lg disabled:opacity-50"
+                  disabled={!isConnected}
+                >
+                  Download (Cloud → Local)
+                </button>
+              </div>
+              
+              {/* Setup Instructions */}
+              <details className="mt-4">
+                <summary className="text-[10px] text-stone-400 cursor-pointer hover:text-stone-600">Setup Instructions</summary>
+                <div className="mt-2 p-3 bg-stone-50 rounded-lg text-[11px] text-stone-500 space-y-2">
+                  <p><strong>1.</strong> Create free project at <span className="font-mono">supabase.com</span></p>
+                  <p><strong>2.</strong> Go to SQL Editor, run this schema:</p>
+                  <pre className="bg-stone-100 p-2 rounded text-[10px] overflow-x-auto whitespace-pre-wrap">
+{`-- Table
+CREATE TABLE workout_data (
+  user_id TEXT PRIMARY KEY,
+  secret_key TEXT NOT NULL,
+  settings JSONB,
+  logs JSONB,
+  completed JSONB,
+  bodyweight JSONB,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE workout_data ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Only allow access if secret matches
+CREATE POLICY "Secret key access" ON workout_data
+FOR ALL USING (
+  secret_key = current_setting('request.headers', true)::json->>'x-secret-key'
+);`}
+                  </pre>
+                  <p><strong>3.</strong> Get URL & anon key from Settings → API</p>
+                  <p><strong>4.</strong> Hardcode URL & anon key in the HTML file (safe to commit)</p>
+                  <p><strong>5. Enter YOUR secret key above (never share this!)</strong></p>
+                </div>
+              </details>
+            </div>
+
+            {/* Wendler Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+              <h2 className="font-bold text-stone-800 mb-4 text-lg">Wendler TMs</h2>
+              <div className="grid grid-cols-2 gap-4">
+                {['bench', 'squat', 'deadlift', 'ohp'].map(l => (
+                  <div key={l}>
+                    <label className="text-xs font-bold text-stone-500 uppercase tracking-wide mb-1 block">{l}</label>
+                    <input type="number" value={settings.wendlerTM[l]} onChange={e => saveSettingsDebounced({ ...settings, wendlerTM: { ...settings.wendlerTM, [l]: parseFloat(e.target.value)||0 } })} className="w-full px-3 py-2 border border-stone-300 rounded-lg bg-stone-50 font-bold" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Calisthenics Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+              <h2 className="font-bold text-stone-800 mb-4 text-lg">Streetlifting</h2>
+              {['dips', 'pullups', 'chinups'].map(ex => (
+                <div key={ex} className="mb-5 last:mb-0">
+                  <div className="flex justify-between items-baseline mb-2">
+                    <label className="text-xs font-bold text-stone-500 uppercase">{ex}</label>
+                    <span className="text-[10px] text-stone-400">Backoff: {calcBackoff(settings.calisthenics[ex]?.top||80, settings.calisthenics[ex]?.backoffPct||75)} lbs</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="number" placeholder="Top" value={settings.calisthenics[ex]?.top||''} onChange={e => saveSettingsDebounced({...settings, calisthenics: { ...settings.calisthenics, [ex]: { ...settings.calisthenics[ex], top: parseFloat(e.target.value)||0 } }})} className="w-full px-3 py-2 border border-stone-300 rounded-lg bg-stone-50 text-center font-bold" />
+                    <div className="relative">
+                      <input type="number" value={settings.calisthenics[ex]?.backoffPct||''} onChange={e => saveSettingsDebounced({...settings, calisthenics: { ...settings.calisthenics, [ex]: { ...settings.calisthenics[ex], backoffPct: parseFloat(e.target.value)||0 } }})} className="w-full px-3 py-2 pr-8 border border-stone-300 rounded-lg bg-stone-50 text-center font-bold" />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 font-bold">%</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Exercise Registry Editor Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-bold text-stone-800 text-lg">Exercise Registry</h2>
+                <span className="text-[10px] text-stone-400">{allExercises.length} exercises</span>
+              </div>
+              
+              <p className="text-xs text-stone-500 mb-4">Tap any exercise to edit name, sets, or rep range.</p>
+              
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {[1,2,3,4,5,6].map(day => (
+                  <div key={day}>
+                    <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wide py-2 sticky top-0 bg-white">
+                      Day {day} — {dayNames[day]}
+                    </div>
+                    {(settings.schedule[day] || []).map(exId => {
+                      const ex = settings.registry[exId];
+                      if (!ex) return null;
+                      return (
+                        <button
+                          key={exId}
+                          onClick={() => setEditingExercise(exId)}
+                          className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-stone-50 active:bg-stone-100 transition-colors flex justify-between items-center group"
+                        >
+                          <div>
+                            <span className="text-sm text-stone-800">{ex.n}</span>
+                            {(ex.w || ex.c) && (
+                              <span className={`ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded ${ex.w ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                {ex.w ? 'W' : 'C'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-stone-400">{ex.s}×{ex.r}</span>
+                            <span className="text-stone-300 group-hover:text-stone-500">→</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Schedule Editor Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-bold text-stone-800 text-lg">Schedule Editor</h2>
+                <button onClick={() => setJsonEditMode(!jsonEditMode)} className="text-xs text-stone-500 underline">{jsonEditMode ? 'Cancel' : 'Edit JSON'}</button>
+              </div>
+              
+              {!jsonEditMode ? (
+                <div className="space-y-2">
+                   {Object.entries(settings.schedule).map(([d, exs]) => (
+                     <div key={d} className="text-xs border-b border-stone-100 pb-2">
+                       <span className="font-bold text-stone-700 mr-2">Day {d}:</span>
+                       <span className="text-stone-500">{exs.length} Exercises</span>
+                     </div>
+                   ))}
+                   <p className="text-[10px] text-stone-400 italic mt-2">Click "Edit JSON" to swap exercises or change order.</p>
+                </div>
+              ) : (
+                <div>
+                  <textarea value={jsonText} onChange={e => setJsonText(e.target.value)} rows={12} className="w-full text-[10px] font-mono p-2 bg-stone-50 border rounded-lg mb-2" />
+                  <button onClick={handleJsonSave} className="w-full bg-stone-800 text-white py-2 rounded-lg text-xs font-bold">Save Schedule</button>
+                </div>
+              )}
+            </div>
+
+            {/* Export & Backup Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+              <h2 className="font-bold text-stone-800 mb-4 text-lg">Export & Backup</h2>
+              
+              <div className="space-y-3">
+                <button 
+                  onClick={exportToCSV}
+                  className="w-full bg-emerald-600 text-white py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 active:bg-emerald-800 transition-colors"
+                >
+                  <span>📊</span> Export Logs to CSV
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    const blob = new Blob([JSON.stringify({ settings, logs: workoutLogs, bw: bodyweightLogs, completed: completedSessions }, null, 2)], { type: 'application/json' });
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `backup-${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                  }} 
+                  className="w-full bg-stone-100 text-stone-700 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-stone-200 transition-colors"
+                >
+                  <span>💾</span> Download Full Backup (JSON)
+                </button>
+              </div>
+              
+              <p className="text-[10px] text-stone-400 mt-3 text-center">CSV exports your workout logs. JSON backup includes all settings.</p>
+            </div>
+
+            <div className="h-8"></div>
+          </div>
+        );
+      };
+
+      // 2. WENDLER TAB
+      const renderWendlerTab = () => (
+        <div className="p-4 space-y-4 max-w-md mx-auto">
+          <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-4 overflow-hidden">
+            <h2 className="font-bold text-stone-800 mb-3 text-lg">Cycle Overview</h2>
+            <div className="overflow-x-auto no-scrollbar">
+              <table className="w-full text-xs">
+                <thead><tr className="text-stone-400 border-b border-stone-100"><th className="pb-2 text-left">Wk</th><th className="pb-2">Bench</th><th className="pb-2">OHP</th><th className="pb-2">Dead</th><th className="pb-2">Squat</th><th className="pb-2">Chin</th></tr></thead>
+                <tbody className="divide-y divide-stone-50">
+                  {[1,2,3,4,5,6,7,8].map(wk => {
+                    const st = wendlerStagger[wk];
+                    const chin = getChinIntensity(wk);
+                    const isComplete = [1,2,3,4,5,6].every(d => completedSessions[`${wk}-${d}`]);
+                    return (
+                      <tr key={wk} className={wk === currentWeek ? 'bg-stone-100' : ''}>
+                        <td className="py-2.5 font-bold text-stone-700 pl-1 relative">{wk} {isComplete && <span className="absolute top-1 left-3 text-[8px] text-emerald-500">●</span>}</td>
+                        {['bench','ohp','deadlift','squat'].map(l => <td key={l} className={`py-2 text-center font-medium ${st[l]===3?'text-rose-600':st[l]===4?'text-emerald-600':'text-stone-400'}`}>{weekNames[st[l]]}</td>)}
+                        <td className="py-2 text-center text-[9px] font-bold px-1"><span className={`px-1.5 py-0.5 rounded ${chin.c.replace('bg-', 'bg-opacity-50 ')}`}>{chin.t}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {['bench','squat','deadlift','ohp'].map(lift => (
+            <div key={lift} className="bg-white rounded-xl shadow-sm border border-stone-200 p-4">
+              <div className="flex justify-between items-center mb-3"><h3 className="font-bold text-stone-800 capitalize text-lg">{lift}</h3><span className="text-xs bg-stone-100 px-2 py-1 rounded text-stone-500 font-mono">TM: {settings.wendlerTM[lift]}</span></div>
+              <div className="overflow-x-auto no-scrollbar">
+                <table className="w-full text-xs">
+                  <thead><tr className="text-stone-400 border-b border-stone-100"><th className="pb-2 text-left pl-2">Week</th><th className="pb-2 text-center">Set 1</th><th className="pb-2 text-center">Set 2</th><th className="pb-2 text-center">Set 3</th></tr></thead>
+                  <tbody className="divide-y divide-stone-50">
+                    {[1,2,3,4,5,6,7,8].map(wk => (
+                      <tr key={wk} className={wk === currentWeek ? 'bg-stone-50' : ''}>
+                        <td className="py-2 pl-2 font-medium text-stone-600">{wk} <span className="text-stone-300 text-[9px] ml-1">{weekNames[wendlerStagger[wk][lift]]}</span></td>
+                        {wendlerPcts[wendlerStagger[wk][lift]].map((s,i) => <td key={i} className={`py-2 text-center ${i===2?'font-bold text-stone-800':'text-stone-500'}`}>{calcWt(settings.wendlerTM[lift], s.p)}<span className="text-[9px] text-stone-300">x{s.r}</span></td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+
+      // 3. WORKOUT TAB
+      const renderWorkoutTab = () => {
+        const dayExIds = settings.schedule[activeDay] || [];
+        const st = wendlerStagger[currentWeek];
+        const chin = getChinIntensity(currentWeek);
+        const isCompleted = completedSessions[`${currentWeek}-${activeDay}`];
+
+        return (
+          <div className="p-4 space-y-5 max-w-md mx-auto">
+            {/* Week/Day Select */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+               <div className="p-3 border-b border-stone-100 flex justify-between items-center">
+                  <div className="relative">
+                    <select value={currentWeek} onChange={e => setCurrentWeek(+e.target.value)} className="appearance-none bg-transparent font-bold text-stone-800 pr-6 outline-none">
+                      {[1,2,3,4,5,6,7,8].map(w => <option key={w} value={w}>Week {w}</option>)}
+                    </select>
+                    <span className="absolute right-0 top-1 text-[10px] text-stone-400">▼</span>
+                  </div>
+                  {isCompleted && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">DONE</span>}
+               </div>
+               <div className="flex overflow-x-auto no-scrollbar bg-stone-50">
+                {[1,2,3,4,5,6].map(d => (
+                  <button key={d} onClick={() => setActiveDay(d)} className={`flex-1 py-3 text-xs font-bold whitespace-nowrap px-4 border-r border-stone-100 last:border-0 ${activeDay===d?'bg-white text-stone-900 shadow-sm':'text-stone-400 hover:text-stone-600'}`}>
+                    D{d} {completedSessions[`${currentWeek}-${d}`] && <span className="ml-1 text-[8px] text-emerald-500">●</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-between items-end px-1">
+               <div>
+                  <h1 className="text-2xl font-bold text-stone-900 leading-none">{dayNames[activeDay]}</h1>
+                  <p className="text-stone-400 text-xs mt-1 font-medium">Week {currentWeek}</p>
+               </div>
+            </div>
+
+            {activeDay === 6 && (
+              <div className={`p-3 rounded-lg border text-sm flex justify-between items-center ${chin.c.replace('bg-', 'bg-opacity-20 border-').replace('text-', 'border-')}`}>
+                <span className="font-bold">Chin-up Intensity</span><span className="font-mono font-bold">{chin.t}</span>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {dayExIds.map(id => {
+                const ex = settings.registry[id];
+                if (!ex) return null;
+
+                const log = getLog(currentWeek, activeDay, id);
+                const prev = getPrevLog(currentWeek, activeDay, id);
+
+                let tgt = '';
+                if (ex.w) {
+                  const ph = st[ex.wl];
+                  tgt = wendlerPcts[ph].map(s => `${calcWt(settings.wendlerTM[ex.wl], s.p)}×${s.r}`).join('  /  ');
+                } else if (ex.c) {
+                  const topVal = settings.calisthenics[ex.ct]?.top || 80;
+                  const pctVal = settings.calisthenics[ex.ct]?.backoffPct || 75;
+                  tgt = ex.st === 'top' ? `${topVal} lbs` : `${calcBackoff(topVal, pctVal)} lbs (${pctVal}%)`;
+                }
+
+                return (
+                  <div key={id} className={`bg-white rounded-xl shadow-sm border border-stone-200 p-4 transition-opacity ${isCompleted ? 'opacity-75' : ''}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                          <h3 className={`font-bold text-base ${ex.w || ex.c ? 'text-stone-800' : 'text-stone-600'}`}>{ex.n}</h3>
+                          {tgt && <p className="text-xs text-emerald-600 font-mono mt-0.5 font-medium">{tgt}</p>}
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-bold text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">{ex.s} × {ex.r}</span>
+                        <p className="text-[10px] text-stone-400 mt-1">{ex.nt}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {Array.from({ length: ex.s }, (_, i) => (
+                        <ExerciseInput key={`${id}-${i}`} initialValue={log.sets?.[i] || ''} lastValue={prev.sets?.[i] || ''} placeholder={prev.sets?.[i] || "---"} setIndex={i} onSave={(v) => logSet(currentWeek, activeDay, id, i, v)} />
+                      ))}
+                    </div>
+                    <NotesInput key={`${id}-notes`} initialValue={log.notes || ''} lastValue={prev.notes || ''} placeholder="Notes..." onSave={(v) => logNotes(currentWeek, activeDay, id, v)} />
+                    
+                    {(prev.sets?.some(isFilled) || isFilled(prev.notes)) && (
+                      <div className="mt-3 p-2.5 rounded-lg bg-stone-50 border border-stone-100 text-xs text-stone-500">
+                        <span className="font-bold text-stone-400 uppercase text-[9px] tracking-wide mr-2">
+                          {prev._week ? `W${prev._week} D${prev._day}` : 'Last'}
+                        </span>
+                        {prev.sets?.filter(isFilled).join(' / ')}
+                        {prev.notes && <div className="mt-1 italic text-stone-400 border-t border-stone-100 pt-1">{prev.notes}</div>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Session Metadata: Date + Duration */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-4">
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Date</label>
+                  <input 
+                    type="date" 
+                    value={getSessionMeta(currentWeek, activeDay).date || new Date().toISOString().split('T')[0]} 
+                    onChange={e => saveSessionMeta(currentWeek, activeDay, 'date', e.target.value)}
+                    className="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50 text-sm text-stone-700"
+                  />
+                </div>
+                <div className="w-28">
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Duration</label>
+                  <div className="relative">
+                    <input 
+                      type="number" 
+                      value={getSessionMeta(currentWeek, activeDay).duration || ''} 
+                      onChange={e => saveSessionMeta(currentWeek, activeDay, 'duration', e.target.value)}
+                      placeholder="—"
+                      className="w-full px-3 py-2 pr-10 border border-stone-200 rounded-lg bg-stone-50 text-sm text-stone-700 font-mono"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs">min</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={handleFinishDay} className={`w-full py-4 rounded-xl font-bold text-base shadow-lg transition-transform active:scale-[0.98] flex justify-center items-center gap-2 ${isCompleted ? 'bg-stone-800 text-stone-400' : 'bg-stone-900 text-white'}`}>
+              <span>{isCompleted ? "Update Session" : "Complete Workout"}</span><span className="text-xl">→</span>
+            </button>
+            <div className="h-8"></div>
+          </div>
+        );
+      };
+
+      // 4. HISTORY TAB
+      const renderHistoryTab = () => (
+        <div className="p-4 max-w-md mx-auto">
+          <h2 className="font-bold text-stone-800 mb-6 text-2xl">Logbook</h2>
+          {[8,7,6,5,4,3,2,1].map(wk => {
+            const hasData = [1,2,3,4,5,6].some(d => workoutLogs[`${wk}-${d}`] && Object.keys(workoutLogs[`${wk}-${d}`]).length > 0);
+            if (!hasData) return null;
+            return (
+              <div key={wk} className="mb-6 bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+                <div className="bg-stone-50 px-4 py-3 flex justify-between items-center border-b border-stone-100">
+                  <h3 className="font-bold text-stone-700">Week {wk}</h3>
+                  <button onClick={() => deleteWeekEntry(wk)} className="text-stone-400 hover:text-rose-500 transition-colors">🗑️</button>
+                </div>
+                <div className="p-4 space-y-4">
+                  {[1,2,3,4,5,6].map(d => {
+                    const data = workoutLogs[`${wk}-${d}`];
+                    if (!data) return null;
+                    const entries = Object.entries(data).filter(([key]) => key !== '_meta');
+                    if (entries.length === 0) return null;
+                    
+                    const meta = data._meta || {};
+                    const dateStr = meta.date ? new Date(meta.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+                    const durationStr = meta.duration ? `${meta.duration}m` : '';
+
+                    return (
+                      <div key={d} className="border-l-2 border-stone-200 pl-3">
+                        <div className="flex items-center gap-2 mb-1">
+                           <button 
+                             onClick={() => jumpToSession(wk, d)}
+                             className="text-xs font-bold text-stone-600 uppercase tracking-wide hover:text-stone-900 hover:underline transition-colors"
+                           >
+                             Day {d}
+                           </button>
+                           {dateStr && <span className="text-[10px] text-stone-400">{dateStr}</span>}
+                           {durationStr && <span className="text-[10px] text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">{durationStr}</span>}
+                           {completedSessions[`${wk}-${d}`] && <span className="text-[8px] bg-emerald-100 text-emerald-700 px-1 rounded font-bold">✓</span>}
+                           <button onClick={() => deleteDayEntry(wk, d)} className="text-[10px] text-stone-300 hover:text-rose-500 px-1 ml-auto">✕</button>
+                        </div>
+                        <div className="space-y-1">
+                          {entries.map(([id, v]) => {
+                            const sets = v.sets?.filter(isFilled) || [];
+                            if (!sets.length && !v.notes) return null;
+                            const exName = settings.registry[id]?.n || id;
+                            return (
+                              <div key={id} className="text-sm">
+                                <span className="text-stone-800 font-medium">{exName}: </span>
+                                <span className="font-mono text-stone-600">{sets.join(' / ')}</span>
+                                {v.notes && <span className="text-stone-400 text-xs italic ml-2">— {v.notes}</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+
+      // 5. BODYWEIGHT TAB
+      const renderBodyweightTab = () => (
+        <div className="p-4 space-y-5 max-w-md mx-auto">
+          <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+            <h2 className="font-bold text-stone-800 mb-4 text-lg">Weigh In</h2>
+            <div className="flex gap-3 mb-4">
+              <input type="number" step="0.1" placeholder="kg" value={newWeight} onChange={e => setNewWeight(e.target.value)} className="flex-1 px-4 py-3 border border-stone-300 rounded-lg bg-stone-50 text-lg font-bold text-stone-800"/>
+              <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="w-1/3 px-2 py-3 border border-stone-300 rounded-lg bg-stone-50 text-xs text-center"/>
+            </div>
+            <button onClick={() => { if (newWeight) { saveBW([...bodyweightLogs, {weight: +newWeight, date: newDate}].sort((a,b) => new Date(a.date) - new Date(b.date))); setNewWeight(''); } }} className="w-full bg-stone-800 text-white py-3 rounded-lg font-bold">Log Weight</button>
+          </div>
+          {bodyweightLogs.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+               <div className="px-5 py-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
+                  <span className="font-bold text-stone-700">Trend</span>
+                  <span className={`font-bold font-mono ${bodyweightLogs[bodyweightLogs.length-1].weight > bodyweightLogs[0].weight ? 'text-emerald-600' : 'text-stone-400'}`}>
+                    {bodyweightLogs.length > 1 ? `${(bodyweightLogs[bodyweightLogs.length-1].weight - bodyweightLogs[0].weight) > 0 ? '+' : ''}${(bodyweightLogs[bodyweightLogs.length-1].weight - bodyweightLogs[0].weight).toFixed(1)} kg` : '—'}
+                  </span>
+               </div>
+               <div className="divide-y divide-stone-50">
+                {[...bodyweightLogs].reverse().map((e, i) => (
+                  <div key={i} className="flex justify-between py-3 px-5 text-sm"><span className="text-stone-500 font-mono text-xs mt-0.5">{e.date}</span><span className="font-bold text-stone-800">{e.weight} kg</span></div>
+                ))}
+               </div>
+            </div>
+          )}
+        </div>
+      );
+
+      return (
+        <div className="min-h-screen pb-24 font-sans text-stone-900 selection:bg-stone-200">
+          <div className="bg-stone-900 text-stone-50 px-5 py-4 flex justify-between items-center shadow-md sticky top-0 z-50">
+            <div><h1 className="text-base font-bold tracking-tight">Tracker V4.1</h1><p className="text-stone-500 text-[10px] font-medium tracking-wide uppercase">HYPERTROPHY + STRENGTH</p></div>
+            <div className="flex items-center gap-2">
+              {saveStatus && <span className="text-emerald-400 text-xs font-mono animate-pulse">{saveStatus}</span>}
+              {!supabaseRef.current && <span className="w-2 h-2 rounded-full bg-rose-500" title="Cloud not configured"></span>}
+              {supabaseRef.current && <span className="w-2 h-2 rounded-full bg-emerald-500" title="Cloud connected"></span>}
+            </div>
+          </div>
+          <div className="pt-2">
+            {activeTab === 'setup' && renderSetupTab()}
+            {activeTab === 'wendler' && renderWendlerTab()}
+            {activeTab === 'workout' && renderWorkoutTab()}
+            {activeTab === 'history' && renderHistoryTab()}
+            {activeTab === 'bodyweight' && renderBodyweightTab()}
+          </div>
+          <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-stone-200 flex safe-area-inset-bottom z-50 shadow-[0_-5px_10px_rgba(0,0,0,0.02)]">
+            {[{id:'workout',l:'Lift',i:'⚡'},{id:'wendler',l:'Cycle',i:'📊'},{id:'history',l:'Log',i:'📓'},{id:'bodyweight',l:'Body',i:'⚖️'},{id:'setup',l:'Config',i:'⚙️'}].map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex-1 py-3 text-center transition-colors relative ${activeTab === t.id ? 'text-stone-900' : 'text-stone-400 hover:text-stone-500'}`}>
+                {activeTab === t.id && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-stone-900 rounded-b"></div>}
+                <div className="text-xl mb-0.5 leading-none filter grayscale">{t.i}</div>
+                <div className="text-[9px] font-bold uppercase tracking-wider">{t.l}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<WorkoutTracker />);
+  </script>
+</body>
+</html>
