@@ -57,7 +57,7 @@
       "d2_scalf":     { n: "Seated Calf Raises",        s: 3, r: "12-20", nt: "Soleus" },
       "d2_legext":    { n: "Leg Extensions",             s: 3, r: "8-12",  nt: "Quad" },
       "d2_calflp":    { n: "Calf Raises on Leg Press",  s: 2, r: "12-15", nt: "Gastroc" },
-      "d2_srdl":      { n: "Single-Leg RDL",            s: 3, r: "8-12",  nt: "Each side" },
+      "d2_qlext":     { n: "QL Extensions",              s: 1, r: "12-15", nt: "LEFT first" }
 
       // D3 — Back + Tri + Side Delts
       "d3_wchin":     { n: "Weighted Chin Ups",          c: true, ct: "chinups",  s: 3, r: "3-8",   nt: "Top+Backoff" },
@@ -65,8 +65,8 @@
       "d3_mlat":      { n: "Machine Lateral Raises",     s: 3, r: "8-12",  nt: "Side delt" },
       "d3_tbar":      { n: "Chest Supported T-Bar Rows", s: 3, r: "6-10",  nt: "Full ROM" },
       "d3_bblat":     { n: "Behind Back Cable Lat Raises", s: 2, r: "10-15", nt: "Side delt" },
-      "d3_lowtrap":   { n: "Lower Trap Cable Raise",    s: 2, r: "10-15", nt: "Lower traps" },
-
+      "d3_deadhang":  { n: "Dead Hangs",                  s: 1, r: "1-3 min", nt: "Mobility" }
+      
       // D4 — Chest + Bi + Rear Delt + Abs (V2)
       "d4_incdb":     { n: "Incline DB Press",           s: 3, r: "6-10",  nt: "Tucked elbows" },
       "d4_ezcurl":    { n: "EZ Bar Curls",               s: 3, r: "6-10",  nt: "Short head" },
@@ -81,9 +81,9 @@
       "squat":        { n: "Squat",                      w: true, wl: "squat",   s: 3, r: "cycle", nt: "AMRAP last" },
       "d5_rdl":       { n: "RDL",                        s: 2, r: "6-10",  nt: "Post chain" },
       "d5_standcalf": { n: "Standing Calf Raises",       s: 4, r: "8-15",  nt: "Gastroc" },
+      "d5_srdl":      { n: "Single-Leg RDL",            s: 3, r: "8-12",  nt: "Each side" },
       "d5_backext":   { n: "Back Extensions",            s: 1, r: "10-15",  nt: "Lower back" },
-      "d5_qlext":     { n: "QL Extensions",              s: 1, r: "12-15", nt: "LEFT first" },
-      "d5_dbextrot":  { n: "DB External Rotation",       s: 1, r: "10-15", nt: "Prehab" },
+      "d5_dbextrot":  { n: "DB External Rotation",       s: 1, r: "10-15", nt: "Prehab" }
 
       // D6 — Back + Tri + Side Delts (V2)
       "d6_wpull":     { n: "Weighted Pull Ups",           c: true, ct: "pullups", s: 3, r: "3-8",   nt: "Top+Backoff" },
@@ -93,17 +93,18 @@
       "d6_dblatinc":  { n: "DB Lat Raises (Incline)",     s: 2, r: "8-12",  nt: "Side delt" },
       "d6_seattri":   { n: "Seated Tricep Pushdown",    s: 2, r: "6-10",  nt: "Lat/medial" },
       "d6_cablat":    { n: "Cable Lateral Raises",        s: 2, r: "8-12",  nt: "Side delt" },
-      "d6_deadhang":  { n: "Dead Hangs",                  s: 1, r: "1-3 min", nt: "Mobility" }
+      "d6_lowtrap":   { n: "Lower Trap Cable Raise",    s: 2, r: "10-15", nt: "Lower traps" }
+      
     };
 
     // Default Schedule: which exercises on which day, in order
     const DEFAULT_SCHEDULE = {
       1: ["bench", "d1_precurl", "d1_wdips", "d1_incurl", "d1_spider", "d1_facepull", "d1_hangleg", "d1_rope"],
-      2: ["dead", "d2_srdl", "d2_legext", "d2_scalf", "d2_pause", "d2_calflp"],
-      3: ["d3_wchin", "d3_ohcable", "d3_mlat", "d3_tbar", "d3_bblat", "d3_seattri", "d3_lowtrap"],
+      2: ["dead", "d2_pause", "d2_scalf","d2_legext", "d2_calflp", "d2_qlext"],
+      3: ["d3_wchin", "d3_ezbarpd", "d3_mlat", "d3_tbar", "d3_bblat", "d3_deadhang"],
       4: ["d4_incdb", "d4_ezcurl", "d4_pecfly", "d4_baycurl", "d4_revpec", "d4_abs", "d4_romleg"],
-      5: ["squat", "d5_hamcurl", "d5_rdl", "d5_standcalf", "d5_backext", "d5_qlext", "d5_dbextrot"],
-      6: ["d6_wpull", "ohp", "d6_ezbarpd", "d6_pendrow", "d6_dblatinc", "d6_cablat", "d6_uniohext", "d6_deadhang"]
+      5: ["d5_hamcurl", "squat", "d5_rdl", "d5_standcalf","d5_srdl", "d5_backext", "d5_dbextrot"],
+      6: ["d6_wpull", "ohp","d6_ohcable", "d6_pendrow", "d6_dblatinc","d6_seattri", "d6_cablat", "d6_lowtrap"]
     };
 
     const WENDLER_PHASES = ['5s', '3s', '531', 'deload'];
