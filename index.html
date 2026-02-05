@@ -176,6 +176,19 @@
           if (!s.registry[key]) s.registry[key] = DEFAULT_REGISTRY[key];
         }
       }
+      // Ensure schedule has all default days/exercises (add missing ones)
+      for (const day in DEFAULT_SCHEDULE) {
+        if (!s.schedule[day]) {
+          s.schedule[day] = DEFAULT_SCHEDULE[day];
+        } else {
+          // Add any missing exercise IDs from defaults to end of day
+          for (const exId of DEFAULT_SCHEDULE[day]) {
+            if (!s.schedule[day].includes(exId)) {
+              s.schedule[day].push(exId);
+            }
+          }
+        }
+      }
       return s;
     };
 
@@ -786,6 +799,20 @@
                 <button onClick={forcePull}
                   className="bg-white border-2 border-stone-800 text-stone-900 text-xs font-bold px-2 py-3 rounded-lg disabled:opacity-50" disabled={!isConnected}>Download (Cloud → Local)</button>
               </div>
+              <button onClick={() => {
+                if (!confirm("Reset schedule & exercise registry to code defaults? Your workout logs and TMs will NOT be affected.")) return;
+                const updated = { ...settings, schedule: JSON.parse(JSON.stringify(DEFAULT_SCHEDULE)), registry: JSON.parse(JSON.stringify(DEFAULT_REGISTRY)), _updated: Date.now() };
+                setSettings(updated);
+                localStorage.setItem('v5-settings', JSON.stringify(updated));
+                if (supabaseRef.current && userId) {
+                  const s = stateRef.current;
+                  supabaseRef.current.upsertData(userId, { settings: updated, logs: s.workoutLogs, completed: s.completedSessions, bw: s.bodyweightLogs });
+                }
+                setSaveStatus('Defaults restored ✓'); setTimeout(() => setSaveStatus(''), 2000);
+              }}
+                className="w-full mt-3 bg-amber-50 border-2 border-amber-300 text-amber-800 text-xs font-bold px-2 py-3 rounded-lg hover:bg-amber-100">
+                🔄 Reset Schedule &amp; Exercises to Defaults
+              </button>
             </div>
 
             {/* Wendler TMs */}
