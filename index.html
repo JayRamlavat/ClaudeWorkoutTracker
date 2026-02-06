@@ -579,9 +579,17 @@
         saveSettingsDebounced({ ...settings, schedule: newSchedule });
       };
 
-      // Touch drag handlers
-      const handleTouchStart = (e, exId, day, idx) => {
-        const touch = e.touches[0];
+      // Unified drag helpers (work for both touch and mouse)
+      const getPointerPos = (e) => {
+        if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+      };
+
+      const handleDragStart = (e, exId, day, idx) => {
+        // Prevent text selection on desktop
+        if (e.type === 'mousedown') e.preventDefault();
+
+        const pos = getPointerPos(e);
         const el = e.currentTarget;
         const rect = el.getBoundingClientRect();
 
@@ -592,37 +600,36 @@
         document.body.appendChild(ghost);
         dragGhostRef.current = ghost;
 
-        setDragState({ exId, fromDay: day, fromIdx: idx, startX: touch.clientX, startY: touch.clientY, ghostOffsetX: touch.clientX - rect.left, ghostOffsetY: touch.clientY - rect.top, started: false });
+        setDragState({ exId, fromDay: day, fromIdx: idx, startX: pos.x, startY: pos.y, ghostOffsetX: pos.x - rect.left, ghostOffsetY: pos.y - rect.top, started: false });
       };
 
-      const handleTouchMove = useCallback((e) => {
+      const handleDragMove = useCallback((e) => {
         if (!dragState) return;
-        const touch = e.touches[0];
-        const dx = touch.clientX - dragState.startX;
-        const dy = touch.clientY - dragState.startY;
+        const pos = getPointerPos(e);
+        const dx = pos.x - dragState.startX;
+        const dy = pos.y - dragState.startY;
 
         // Require minimum movement to start drag
         if (!dragState.started && Math.abs(dx) + Math.abs(dy) < 10) return;
         if (!dragState.started) {
           setDragState(prev => ({ ...prev, started: true }));
-          e.preventDefault();
         }
 
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
 
         // Move ghost
         if (dragGhostRef.current) {
-          dragGhostRef.current.style.top = (touch.clientY - dragState.ghostOffsetY) + 'px';
-          dragGhostRef.current.style.left = (touch.clientX - dragState.ghostOffsetX) + 'px';
+          dragGhostRef.current.style.top = (pos.y - dragState.ghostOffsetY) + 'px';
+          dragGhostRef.current.style.left = (pos.x - dragState.ghostOffsetX) + 'px';
         }
 
         // Auto-scroll near edges
         const scrollZone = 60;
-        if (touch.clientY < scrollZone) window.scrollBy(0, -8);
-        else if (touch.clientY > window.innerHeight - scrollZone) window.scrollBy(0, 8);
+        if (pos.y < scrollZone) window.scrollBy(0, -8);
+        else if (pos.y > window.innerHeight - scrollZone) window.scrollBy(0, 8);
 
         // Hit-test drop targets
-        const els = document.elementsFromPoint(touch.clientX, touch.clientY);
+        const els = document.elementsFromPoint(pos.x, pos.y);
         let foundTarget = null;
         for (const el of els) {
           if (el.dataset.dropDay && el.dataset.dropIdx !== undefined) {
@@ -639,7 +646,7 @@
         setDropTarget(foundTarget);
       }, [dragState, settings.schedule]);
 
-      const handleTouchEnd = useCallback(() => {
+      const handleDragEnd = useCallback(() => {
         if (dragGhostRef.current) {
           document.body.removeChild(dragGhostRef.current);
           dragGhostRef.current = null;
@@ -651,20 +658,26 @@
         setDropTarget(null);
       }, [dragState, dropTarget]);
 
-      // Attach global touch listeners when dragging
+      // Attach global listeners when dragging (touch + mouse)
       useEffect(() => {
         if (!dragState) return;
-        const move = (e) => handleTouchMove(e);
-        const end = () => handleTouchEnd();
+        const move = (e) => handleDragMove(e);
+        const end = () => handleDragEnd();
+        // Touch
         document.addEventListener('touchmove', move, { passive: false });
         document.addEventListener('touchend', end);
         document.addEventListener('touchcancel', end);
+        // Mouse
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', end);
         return () => {
           document.removeEventListener('touchmove', move);
           document.removeEventListener('touchend', end);
           document.removeEventListener('touchcancel', end);
+          document.removeEventListener('mousemove', move);
+          document.removeEventListener('mouseup', end);
         };
-      }, [dragState, handleTouchMove, handleTouchEnd]);
+      }, [dragState, handleDragMove, handleDragEnd]);
 
       const addNewExercise = (id, name, sets, reps, notes) => {
         const newRegistry = { ...settings.registry };
@@ -1008,8 +1021,8 @@
                           >
                             <div
                               className="text-stone-300 hover:text-stone-500 cursor-grab active:cursor-grabbing px-1 py-2 select-none touch-none text-sm"
-                              onTouchStart={(e) => handleTouchStart(e, exId, day, idx)}
-                              onMouseDown={(e) => e.preventDefault()}
+                              onTouchStart={(e) => handleDragStart(e, exId, day, idx)}
+                              onMouseDown={(e) => handleDragStart(e, exId, day, idx)}
                             >≡</div>
                             <div className="flex flex-col gap-0.5 mr-1">
                               <button onClick={() => moveInSchedule(day, exId, -1)} className="text-[10px] text-stone-300 hover:text-stone-600 leading-none" disabled={idx === 0}>▲</button>
