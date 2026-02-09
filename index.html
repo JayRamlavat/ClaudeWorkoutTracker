@@ -110,6 +110,23 @@
       6: ["d6_wpull", "ohp","d6_ohcable", "d6_pendrow", "d6_dblatinc","d6_seattri", "d6_cablat", "d6_lowtrap"]
     };
 
+    // Default Mobility Registry
+    const DEFAULT_MOBILITY_REGISTRY = {
+      "mob_bandtalar": { n: "Banded Posterior Talar Glide", d: "2 min", nt: "Heavy band, R ankle, 30s oscillate + 10s hold, repeat" },
+      "mob_wallankle": { n: "Loaded Wall Ankle Hold", d: "3×30-45s", nt: "KB goblet, R foot 5in from wall, knee to wall, heel down" },
+      "mob_goblethold": { n: "Deep Goblet Squat Hold", d: "2×45-60s", nt: "Knees forward, R heel down, sit in bottom" }
+    };
+
+    // Default Mobility Schedule: { day: { pre: [...ids], post: [...ids] } }
+    const DEFAULT_MOBILITY_SCHEDULE = {
+      1: { pre: [], post: ["mob_bandtalar", "mob_wallankle"] },
+      2: { pre: ["mob_bandtalar", "mob_wallankle", "mob_goblethold"], post: [] },
+      3: { pre: [], post: ["mob_bandtalar", "mob_wallankle"] },
+      4: { pre: [], post: ["mob_bandtalar", "mob_wallankle"] },
+      5: { pre: ["mob_bandtalar", "mob_wallankle", "mob_goblethold"], post: [] },
+      6: { pre: [], post: ["mob_bandtalar", "mob_wallankle"] }
+    };
+
     const WENDLER_PHASES = ['5s', '3s', '531', 'deload'];
     const PHASE_DISPLAY = { '5s': '5s Week', '3s': '3s Week', '531': '5/3/1 Week', 'deload': 'Deload' };
     const PHASE_COLORS = {
@@ -146,6 +163,8 @@
       wendlerPhase: '5s',    // current phase, auto-cycles
       schedule: DEFAULT_SCHEDULE,
       registry: DEFAULT_REGISTRY,
+      mobilityRegistry: DEFAULT_MOBILITY_REGISTRY,
+      mobilitySchedule: DEFAULT_MOBILITY_SCHEDULE,
       bodyweight: 155,
       _updated: 0
     };
@@ -189,6 +208,27 @@
             if (!s.schedule[day].includes(exId)) {
               s.schedule[day].push(exId);
             }
+          }
+        }
+      }
+      // Mobility registry
+      if (!s.mobilityRegistry) {
+        s.mobilityRegistry = DEFAULT_MOBILITY_REGISTRY;
+      } else {
+        for (const key in DEFAULT_MOBILITY_REGISTRY) {
+          if (!s.mobilityRegistry[key]) s.mobilityRegistry[key] = DEFAULT_MOBILITY_REGISTRY[key];
+        }
+      }
+      // Mobility schedule
+      if (!s.mobilitySchedule) {
+        s.mobilitySchedule = DEFAULT_MOBILITY_SCHEDULE;
+      } else {
+        for (const day in DEFAULT_MOBILITY_SCHEDULE) {
+          if (!s.mobilitySchedule[day]) {
+            s.mobilitySchedule[day] = DEFAULT_MOBILITY_SCHEDULE[day];
+          } else {
+            if (!s.mobilitySchedule[day].pre) s.mobilitySchedule[day].pre = [];
+            if (!s.mobilitySchedule[day].post) s.mobilitySchedule[day].post = [];
           }
         }
       }
@@ -334,6 +374,7 @@
       const [editingExercise, setEditingExercise] = useState(null);
       const [addingToDay, setAddingToDay] = useState(null);
       const [showPhaseSelector, setShowPhaseSelector] = useState(false);
+      const [mobExpanded, setMobExpanded] = useState({});
 
       // Drag-and-drop state for schedule editor
       const [dragState, setDragState] = useState(null); // { exId, fromDay, fromIdx }
@@ -364,12 +405,15 @@
       const [bodyweightLogs, setBodyweightLogs] = useState(() => {
         try { return JSON.parse(localStorage.getItem('v5-bw')) || []; } catch(e) { return []; }
       });
+      const [mobilityLogs, setMobilityLogs] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('v5-mobility')) || {}; } catch(e) { return {}; }
+      });
       const [newWeight, setNewWeight] = useState('');
       const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
 
       // Ref for cloud sync
-      const stateRef = useRef({ workoutLogs, settings, completedSessions, bodyweightLogs });
-      useEffect(() => { stateRef.current = { workoutLogs, settings, completedSessions, bodyweightLogs }; }, [workoutLogs, settings, completedSessions, bodyweightLogs]);
+      const stateRef = useRef({ workoutLogs, settings, completedSessions, bodyweightLogs, mobilityLogs });
+      useEffect(() => { stateRef.current = { workoutLogs, settings, completedSessions, bodyweightLogs, mobilityLogs }; }, [workoutLogs, settings, completedSessions, bodyweightLogs, mobilityLogs]);
 
       // Cloud Logic
       useEffect(() => {
@@ -398,7 +442,7 @@
                 setBodyweightLogs(unique); localStorage.setItem('v5-bw', JSON.stringify(unique));
               }
             }
-            setSaveStatus('Synced ✓');
+            setSaveStatus('Synced ✔');
             setTimeout(() => setSaveStatus(''), 2000);
           } catch (e) { console.error("Cloud load error:", e); setSaveStatus('Sync Error ❌'); setTimeout(() => setSaveStatus(''), 3000); }
         };
@@ -410,7 +454,7 @@
         const s = stateRef.current;
         try {
           await supabaseRef.current.upsertData(userId, { settings: s.settings, logs: s.workoutLogs, completed: s.completedSessions, bw: s.bodyweightLogs });
-          setSaveStatus('Saved ✓'); setTimeout(() => setSaveStatus(''), 2000);
+          setSaveStatus('Saved ✔'); setTimeout(() => setSaveStatus(''), 2000);
         } catch (e) { console.error("Cloud save error:", e); setSaveStatus('Save Error ❌'); setTimeout(() => setSaveStatus(''), 3000); }
       };
 
@@ -460,6 +504,33 @@
       const saveBW = (l) => {
         setBodyweightLogs(l); localStorage.setItem('v5-bw', JSON.stringify(l)); pushToCloud();
       };
+
+      // Mobility log helpers
+      const getMobilityLog = (w, d) => mobilityLogs[`${w}-${d}`] || {};
+      const toggleMobilityCheck = (w, d, slot, exId) => {
+        const k = `${w}-${d}`;
+        const ml = { ...mobilityLogs };
+        if (!ml[k]) ml[k] = {};
+        if (!ml[k][slot]) ml[k][slot] = {};
+        ml[k][slot][exId] = !ml[k][slot][exId];
+        setMobilityLogs(ml);
+        localStorage.setItem('v5-mobility', JSON.stringify(ml));
+        if (saveTimeout.current) clearTimeout(saveTimeout.current);
+        saveTimeout.current = setTimeout(() => pushToCloud(), 2000);
+      };
+      const saveMobilityNote = (w, d, slot, exId, note) => {
+        const k = `${w}-${d}`;
+        const ml = { ...mobilityLogs };
+        if (!ml[k]) ml[k] = {};
+        if (!ml[k]._notes) ml[k]._notes = {};
+        if (!ml[k]._notes[slot]) ml[k]._notes[slot] = {};
+        ml[k]._notes[slot][exId] = note;
+        setMobilityLogs(ml);
+        localStorage.setItem('v5-mobility', JSON.stringify(ml));
+        if (saveTimeout.current) clearTimeout(saveTimeout.current);
+        saveTimeout.current = setTimeout(() => pushToCloud(), 2000);
+      };
+      const getMobilityNote = (w, d, slot, exId) => mobilityLogs[`${w}-${d}`]?._notes?.[slot]?.[exId] || '';
 
       // Phase management
       const setPhase = (phase) => {
@@ -686,6 +757,45 @@
         return id;
       };
 
+      // Mobility schedule management
+      const [addingMobility, setAddingMobility] = useState(null); // { day, slot }
+      const [editingMobility, setEditingMobility] = useState(null); // exId
+
+      const addMobilityToSchedule = (day, slot, exId) => {
+        const ms = JSON.parse(JSON.stringify(settings.mobilitySchedule));
+        if (!ms[day]) ms[day] = { pre: [], post: [] };
+        if (!ms[day][slot]) ms[day][slot] = [];
+        if (ms[day][slot].includes(exId)) return;
+        ms[day][slot].push(exId);
+        saveSettingsDebounced({ ...settings, mobilitySchedule: ms });
+      };
+
+      const removeMobilityFromSchedule = (day, slot, exId) => {
+        const ms = JSON.parse(JSON.stringify(settings.mobilitySchedule));
+        if (!ms[day]?.[slot]) return;
+        ms[day][slot] = ms[day][slot].filter(id => id !== exId);
+        saveSettingsDebounced({ ...settings, mobilitySchedule: ms });
+      };
+
+      const moveMobilityInSchedule = (day, slot, exId, direction) => {
+        const ms = JSON.parse(JSON.stringify(settings.mobilitySchedule));
+        const arr = ms[day]?.[slot];
+        if (!arr) return;
+        const idx = arr.indexOf(exId);
+        if (idx < 0) return;
+        const target = idx + direction;
+        if (target < 0 || target >= arr.length) return;
+        [arr[idx], arr[target]] = [arr[target], arr[idx]];
+        saveSettingsDebounced({ ...settings, mobilitySchedule: ms });
+      };
+
+      const addNewMobilityExercise = (id, name, duration, notes) => {
+        const newReg = { ...settings.mobilityRegistry };
+        newReg[id] = { n: name, d: duration || '', nt: notes || '' };
+        saveSettingsDebounced({ ...settings, mobilityRegistry: newReg });
+        return id;
+      };
+
       // CSV Export
       const exportToCSV = () => {
         const rows = [['Week','Day','Date','Duration','Exercise ID','Exercise Name','Set 1','Set 2','Set 3','Set 4','Set 5','Notes'].join(',')];
@@ -879,7 +989,7 @@
                 <button key={phase} onClick={() => setPhase(phase)}
                   className={`w-full text-left px-4 py-3 rounded-lg font-bold text-sm transition-colors border-2 ${settings.wendlerPhase === phase ? PHASE_COLORS[phase] + ' border-current' : 'bg-stone-50 text-stone-600 border-stone-100 hover:bg-stone-100'}`}>
                   {PHASE_DISPLAY[phase]}
-                  {settings.wendlerPhase === phase && <span className="float-right">✓</span>}
+                  {settings.wendlerPhase === phase && <span className="float-right">✔</span>}
                 </button>
               ))}
             </div>
@@ -890,6 +1000,207 @@
 
       // ---- TAB RENDERERS ----
 
+      // Mobility Section (collapsible, for Lift tab)
+      // Mobility note input - saves on blur to avoid remount focus loss
+      const MobilityNoteInput = React.memo(({ initialValue, onSave }) => {
+        const [val, setVal] = useState(initialValue);
+        const isEditingRef = useRef(false);
+        useEffect(() => { if (!isEditingRef.current) setVal(initialValue); }, [initialValue]);
+        return (
+          <input type="text" placeholder="Notes..." value={val}
+            onFocus={() => { isEditingRef.current = true; }}
+            onChange={e => setVal(e.target.value)}
+            onBlur={() => { isEditingRef.current = false; onSave(val); }}
+            className="w-full px-2 py-1 text-xs border border-stone-100 rounded bg-transparent focus:bg-white focus:border-stone-300 text-stone-500 placeholder-stone-300 transition-colors" />
+        );
+      });
+
+      const MobilitySection = ({ slot, label, week, day, isCompleted }) => {
+        const stateKey = `${day}-${slot}`;
+        const expanded = !!mobExpanded[stateKey];
+        const toggleExpanded = () => setMobExpanded(prev => ({ ...prev, [stateKey]: !prev[stateKey] }));
+        const mobSchedule = settings.mobilitySchedule?.[day]?.[slot] || [];
+        const mobLog = getMobilityLog(week, day);
+        
+        if (mobSchedule.length === 0) return null;
+
+        const completedCount = mobSchedule.filter(id => mobLog[slot]?.[id]).length;
+        const allDone = completedCount === mobSchedule.length;
+        const borderColor = slot === 'pre' ? 'border-l-cyan-400' : 'border-l-violet-400';
+        const accentBg = slot === 'pre' ? 'bg-cyan-50' : 'bg-violet-50';
+        const accentText = slot === 'pre' ? 'text-cyan-700' : 'text-violet-700';
+        const accentBadge = slot === 'pre' ? 'bg-cyan-100 text-cyan-700' : 'bg-violet-100 text-violet-700';
+
+        return (
+          <div className={`bg-white rounded-xl shadow-sm border border-stone-200 border-l-4 ${borderColor} overflow-hidden transition-opacity ${isCompleted ? 'opacity-75' : ''}`}>
+            <div onClick={toggleExpanded}
+              className={`w-full px-4 py-3 flex justify-between items-center cursor-pointer select-none ${expanded ? accentBg : 'hover:bg-stone-50'} transition-colors`}>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold uppercase tracking-wide ${accentText}`}>{label}</span>
+                {allDone && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">Done</span>}
+                {!allDone && completedCount > 0 && <span className="text-[9px] font-bold text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">{completedCount}/{mobSchedule.length}</span>}
+              </div>
+              <span className={`text-xs text-stone-400 transition-transform ${expanded ? 'rotate-180' : ''}`}>▼</span>
+            </div>
+            {expanded && (
+              <div className="px-4 pb-3 space-y-2" onClick={e => e.stopPropagation()}>
+                {mobSchedule.map(id => {
+                  const ex = settings.mobilityRegistry?.[id];
+                  if (!ex) return null;
+                  const checked = !!mobLog[slot]?.[id];
+                  const note = getMobilityNote(week, day, slot, id);
+                  return (
+                    <div key={id} className={`rounded-lg p-3 transition-colors ${checked ? 'bg-emerald-50/50' : 'bg-stone-50'}`}>
+                      <div className="flex items-start gap-3">
+                        <button onClick={() => toggleMobilityCheck(week, day, slot, id)}
+                          className={`w-6 h-6 mt-0.5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-stone-300 hover:border-stone-400'}`}>
+                          {checked && <span className="text-xs font-bold">✓</span>}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline gap-2">
+                            <span className={`text-sm font-medium ${checked ? 'text-stone-400 line-through' : 'text-stone-700'}`}>{ex.n}</span>
+                            {ex.d && <span className="text-[10px] font-bold text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded flex-shrink-0">{ex.d}</span>}
+                          </div>
+                          {ex.nt && <p className="text-[10px] text-stone-400 mt-0.5 leading-snug">{ex.nt}</p>}
+                          <div className="mt-1.5">
+                            <MobilityNoteInput initialValue={note} onSave={v => saveMobilityNote(week, day, slot, id, v)} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      // Mobility Editor Modal
+      const MobilityEditorModal = ({ exId, onClose }) => {
+        const ex = settings.mobilityRegistry?.[exId] || {};
+        const [name, setName] = useState(ex.n || '');
+        const [duration, setDuration] = useState(ex.d || '');
+        const [notes, setNotes] = useState(ex.nt || '');
+
+        const handleSave = () => {
+          const newReg = { ...settings.mobilityRegistry };
+          newReg[exId] = { ...newReg[exId], n: name, d: duration, nt: notes };
+          saveSettingsDebounced({ ...settings, mobilityRegistry: newReg });
+          onClose();
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-stone-800 text-lg">Edit Mobility Exercise</h3>
+                <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-xl">×</button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Exercise ID</label>
+                  <div className="px-3 py-2 bg-stone-100 rounded-lg text-sm text-stone-500 font-mono">{exId}</div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Name</label>
+                  <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Duration / Dose</label>
+                  <input type="text" value={duration} onChange={e => setDuration(e.target.value)} placeholder="2×30s, 3 min, etc." className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Cue / Notes</label>
+                  <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Setup and execution cues" className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm" />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button onClick={onClose} className="flex-1 py-2.5 text-sm font-bold text-stone-500 bg-stone-100 rounded-lg">Cancel</button>
+                <button onClick={handleSave} className="flex-1 py-2.5 text-sm font-bold text-white bg-stone-800 rounded-lg">Save</button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // Add Mobility Exercise Modal
+      const AddMobilityModal = ({ day, slot, onClose }) => {
+        const [mode, setMode] = useState('existing');
+        const [selectedId, setSelectedId] = useState('');
+        const [newId, setNewId] = useState('');
+        const [newName, setNewName] = useState('');
+        const [newDuration, setNewDuration] = useState('');
+        const [newNotes, setNewNotes] = useState('');
+
+        const currentIds = settings.mobilitySchedule?.[day]?.[slot] || [];
+        const existingIds = Object.keys(settings.mobilityRegistry || {}).filter(id => !currentIds.includes(id)).sort((a,b) => (settings.mobilityRegistry[a]?.n || '').localeCompare(settings.mobilityRegistry[b]?.n || ''));
+
+        const handleAdd = () => {
+          if (mode === 'existing') {
+            if (!selectedId) return;
+            addMobilityToSchedule(day, slot, selectedId);
+          } else {
+            const id = newId.trim().toLowerCase().replace(/\s+/g, '_');
+            if (!id || !newName.trim()) return alert("ID and Name required");
+            if (settings.mobilityRegistry?.[id]) return alert("ID already exists");
+            addNewMobilityExercise(id, newName.trim(), newDuration, newNotes);
+            addMobilityToSchedule(day, slot, id);
+          }
+          onClose();
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-stone-800 text-lg">Add to D{day} {slot === 'pre' ? 'Pre' : 'Post'}-Workout</h3>
+                <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-xl">×</button>
+              </div>
+              <div className="flex gap-2 mb-4">
+                <button onClick={() => setMode('existing')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${mode === 'existing' ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-500'}`}>From Registry</button>
+                <button onClick={() => setMode('new')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${mode === 'new' ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-500'}`}>Create New</button>
+              </div>
+              {mode === 'existing' ? (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {existingIds.length === 0 && <p className="text-xs text-stone-400 text-center py-4">All mobility exercises already assigned</p>}
+                  {existingIds.map(id => (
+                    <button key={id} onClick={() => setSelectedId(id)}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors ${selectedId === id ? 'bg-stone-800 text-white' : 'bg-stone-50 text-stone-700 hover:bg-stone-100'}`}>
+                      {settings.mobilityRegistry[id]?.n || id}
+                      {settings.mobilityRegistry[id]?.d && <span className="text-xs opacity-60 ml-2">{settings.mobilityRegistry[id].d}</span>}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Exercise ID (unique)</label>
+                    <input type="text" value={newId} onChange={e => setNewId(e.target.value)} placeholder="mob_newexercise" className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm font-mono" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Name</label>
+                    <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Banded Hip Flexor Stretch" className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Duration / Dose</label>
+                    <input type="text" value={newDuration} onChange={e => setNewDuration(e.target.value)} placeholder="2×30s" className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Cue / Notes</label>
+                    <input type="text" value={newNotes} onChange={e => setNewNotes(e.target.value)} placeholder="Setup and execution cues" className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm" />
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-3 mt-6">
+                <button onClick={onClose} className="flex-1 py-2.5 text-sm font-bold text-stone-500 bg-stone-100 rounded-lg">Cancel</button>
+                <button onClick={handleAdd} className="flex-1 py-2.5 text-sm font-bold text-white bg-stone-800 rounded-lg">Add</button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
       // SETUP TAB
       const renderSetupTab = () => {
         const isConnected = supabaseRef.current !== null;
@@ -897,6 +1208,8 @@
           <div className="p-4 space-y-6 max-w-md mx-auto">
             {editingExercise && <ExerciseEditorModal exId={editingExercise} onClose={() => setEditingExercise(null)} />}
             {addingToDay && <AddExerciseModal day={addingToDay} onClose={() => setAddingToDay(null)} />}
+            {editingMobility && <MobilityEditorModal exId={editingMobility} onClose={() => setEditingMobility(null)} />}
+            {addingMobility && <AddMobilityModal day={addingMobility.day} slot={addingMobility.slot} onClose={() => setAddingMobility(null)} />}
 
             {/* Cloud Sync */}
             <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
@@ -906,7 +1219,7 @@
               </div>
               <div className="space-y-3">
                 <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
-                  <p className="text-xs text-emerald-700">✓ Supabase URL & Key configured in code</p>
+                  <p className="text-xs text-emerald-700">✔ Supabase URL & Key configured in code</p>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Secret Key <span className="text-rose-500">*</span></label>
@@ -932,14 +1245,14 @@
               </div>
               <button onClick={() => {
                 if (!confirm("Reset schedule & exercise registry to code defaults? Your workout logs and TMs will NOT be affected.")) return;
-                const updated = { ...settings, schedule: JSON.parse(JSON.stringify(DEFAULT_SCHEDULE)), registry: JSON.parse(JSON.stringify(DEFAULT_REGISTRY)), _updated: Date.now() };
+                const updated = { ...settings, schedule: JSON.parse(JSON.stringify(DEFAULT_SCHEDULE)), registry: JSON.parse(JSON.stringify(DEFAULT_REGISTRY)), mobilityRegistry: JSON.parse(JSON.stringify(DEFAULT_MOBILITY_REGISTRY)), mobilitySchedule: JSON.parse(JSON.stringify(DEFAULT_MOBILITY_SCHEDULE)), _updated: Date.now() };
                 setSettings(updated);
                 localStorage.setItem('v5-settings', JSON.stringify(updated));
                 if (supabaseRef.current && userId) {
                   const s = stateRef.current;
                   supabaseRef.current.upsertData(userId, { settings: updated, logs: s.workoutLogs, completed: s.completedSessions, bw: s.bodyweightLogs });
                 }
-                setSaveStatus('Defaults restored ✓'); setTimeout(() => setSaveStatus(''), 2000);
+                setSaveStatus('Defaults restored ✔'); setTimeout(() => setSaveStatus(''), 2000);
               }}
                 className="w-full mt-3 bg-amber-50 border-2 border-amber-300 text-amber-800 text-xs font-bold px-2 py-3 rounded-lg hover:bg-amber-100">
                 🔄 Reset Schedule &amp; Exercises to Defaults
@@ -1050,6 +1363,73 @@
                       </div>
                     )}
                   </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Mobility Schedule Editor */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
+              <h2 className="font-bold text-stone-800 text-lg mb-2">Mobility Schedule</h2>
+              <p className="text-xs text-stone-500 mb-4">Assign mobility exercises to pre/post-workout slots per day. Tap name to edit.</p>
+              <div className="space-y-1">
+                {[1,2,3,4,5,6].map(day => {
+                  const preIds = settings.mobilitySchedule?.[day]?.pre || [];
+                  const postIds = settings.mobilitySchedule?.[day]?.post || [];
+                  return (
+                    <div key={day} className="mb-5">
+                      <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wide py-2">
+                        Day {day} — {dayShort[day]}
+                      </div>
+                      {/* Pre-workout */}
+                      <div className="ml-2 mb-2">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[9px] font-bold text-cyan-600 uppercase tracking-wide">Pre-Workout</span>
+                          <button onClick={() => setAddingMobility({ day, slot: 'pre' })} className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded hover:bg-emerald-100">+ Add</button>
+                        </div>
+                        {preIds.length === 0 && <p className="text-[10px] text-stone-300 italic ml-1">None</p>}
+                        {preIds.map((exId, idx) => {
+                          const ex = settings.mobilityRegistry?.[exId];
+                          if (!ex) return null;
+                          return (
+                            <div key={exId} className="flex items-center gap-1 py-1">
+                              <div className="flex flex-col gap-0.5 mr-1">
+                                <button onClick={() => moveMobilityInSchedule(day, 'pre', exId, -1)} className="text-[10px] text-stone-300 hover:text-stone-600 leading-none" disabled={idx === 0}>▲</button>
+                                <button onClick={() => moveMobilityInSchedule(day, 'pre', exId, 1)} className="text-[10px] text-stone-300 hover:text-stone-600 leading-none" disabled={idx === preIds.length - 1}>▼</button>
+                              </div>
+                              <button onClick={() => setEditingMobility(exId)} className="flex-1 text-left text-xs text-stone-700 hover:text-stone-900 truncate">{ex.n}</button>
+                              <span className="text-[9px] text-stone-400 mr-2">{ex.d}</span>
+                              <button onClick={() => { if(confirm(`Remove ${ex.n}?`)) removeMobilityFromSchedule(day, 'pre', exId); }}
+                                className="text-stone-300 hover:text-rose-500 text-xs px-1">✕</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Post-workout */}
+                      <div className="ml-2">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[9px] font-bold text-violet-600 uppercase tracking-wide">Post-Workout</span>
+                          <button onClick={() => setAddingMobility({ day, slot: 'post' })} className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded hover:bg-emerald-100">+ Add</button>
+                        </div>
+                        {postIds.length === 0 && <p className="text-[10px] text-stone-300 italic ml-1">None</p>}
+                        {postIds.map((exId, idx) => {
+                          const ex = settings.mobilityRegistry?.[exId];
+                          if (!ex) return null;
+                          return (
+                            <div key={exId} className="flex items-center gap-1 py-1">
+                              <div className="flex flex-col gap-0.5 mr-1">
+                                <button onClick={() => moveMobilityInSchedule(day, 'post', exId, -1)} className="text-[10px] text-stone-300 hover:text-stone-600 leading-none" disabled={idx === 0}>▲</button>
+                                <button onClick={() => moveMobilityInSchedule(day, 'post', exId, 1)} className="text-[10px] text-stone-300 hover:text-stone-600 leading-none" disabled={idx === postIds.length - 1}>▼</button>
+                              </div>
+                              <button onClick={() => setEditingMobility(exId)} className="flex-1 text-left text-xs text-stone-700 hover:text-stone-900 truncate">{ex.n}</button>
+                              <span className="text-[9px] text-stone-400 mr-2">{ex.d}</span>
+                              <button onClick={() => { if(confirm(`Remove ${ex.n}?`)) removeMobilityFromSchedule(day, 'post', exId); }}
+                                className="text-stone-300 hover:text-rose-500 text-xs px-1">✕</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -1193,6 +1573,9 @@
               </div>
             </div>
 
+            {/* Pre-Workout Mobility */}
+            <MobilitySection slot="pre" label="Pre-Workout Mobility" week={currentWeek} day={activeDay} isCompleted={isCompleted} />
+
             {/* Exercises */}
             <div className="space-y-4">
               {dayExIds.map(id => {
@@ -1244,6 +1627,9 @@
                 );
               })}
             </div>
+
+            {/* Post-Workout Mobility */}
+            <MobilitySection slot="post" label="Post-Workout Mobility" week={currentWeek} day={activeDay} isCompleted={isCompleted} />
 
             {/* Session Metadata */}
             <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-4">
@@ -1306,7 +1692,7 @@
                             </button>
                             {dateStr && <span className="text-[10px] text-stone-400">{dateStr}</span>}
                             {durationStr && <span className="text-[10px] text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">{durationStr}</span>}
-                            {completedSessions[`${wk}-${d}`] && <span className="text-[8px] bg-emerald-100 text-emerald-700 px-1 rounded font-bold">✓</span>}
+                            {completedSessions[`${wk}-${d}`] && <span className="text-[8px] bg-emerald-100 text-emerald-700 px-1 rounded font-bold">✔</span>}
                             <button onClick={() => deleteDayEntry(wk, d)} className="text-[10px] text-stone-300 hover:text-rose-500 px-1 ml-auto">✕</button>
                           </div>
                           <div className="space-y-1">
