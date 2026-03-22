@@ -42,7 +42,7 @@
 
     // ---- 1. DEFINITIONS & DEFAULTS ----
 
-    // Default Registry: exercise attributes
+// Default Registry: exercise attributes
     const DEFAULT_REGISTRY = {
       // D1 — Chest + Bi + Rear Delt + Abs
       "bench":        { n: "Bench Press",              w: true, wl: "bench",    s: 3, r: "cycle", nt: "AMRAP last" },
@@ -69,11 +69,12 @@
       "d3_tbar":      { n: "Chest Supported T-Bar Rows", s: 3, r: "6-10",  nt: "Full ROM" },
       "d3_bblat":     { n: "Behind Back Cable Lat Raises", s: 2, r: "10-15", nt: "Side delt" },
       "d3_deadhang":  { n: "Dead Hangs",                  s: 1, r: "1-3 min", nt: "Mobility" },
+      "d3_dblat":     { n: "DB Side Delt Raises",         s: 3, r: "10-15", nt: "Side delt" },
       
       // D4 — Chest + Bi + Rear Delt + Abs (V2)
       "d4_incdb":     { n: "Incline DB Press",           s: 3, r: "6-10",  nt: "Tucked elbows" },
       "d4_ezcurl":    { n: "EZ Bar Curls",               s: 3, r: "6-10",  nt: "Short head" },
-      "d4_pecfly":    { n: "Pec Deck Flys",              s: 3, r: "8-12",  nt: "Squeeze" },
+      "d4_pecfly":    { n: "Pec Deck Flys",              s: 3, r: "8-12",  nt: "Reduced ROM - no deep stretch" },
       "d4_baycurl":   { n: "Bayesian Cable Curls",       s: 3, r: "8-12",  nt: "Long head" },
       "d4_revpec":    { n: "Rev Pec Deck",               s: 3, r: "8-12",  nt: "Rear delt" },
       "d4_abs":       { n: "ABS Machine",                s: 2, r: "6-10",  nt: "Core" },
@@ -96,20 +97,20 @@
       "d6_dblatinc":  { n: "DB Lat Raises (Incline)",     s: 2, r: "8-12",  nt: "Side delt" },
       "d6_seattri":   { n: "Seated Tricep Pushdown",    s: 2, r: "6-10",  nt: "Lat/medial" },
       "d6_cablat":    { n: "Cable Lateral Raises",        s: 2, r: "8-12",  nt: "Side delt" },
-      "d6_lowtrap":   { n: "Lower Trap Cable Raise",    s: 2, r: "10-15", nt: "Lower traps" }
+      "d6_lowtrap":   { n: "Lower Trap Cable Raise",    s: 2, r: "10-15", nt: "Lower traps" },
+      "d6_yraise":    { n: "Incline DB Y-Raises",        s: 2, r: "10-15", nt: "Lower traps" }
       
     };
 
     // Default Schedule: which exercises on which day, in order
     const DEFAULT_SCHEDULE = {
-      1: ["bench", "d1_precurl", "d1_wdips", "d1_incurl", "d1_spider", "d1_facepull", "d1_hangleg", "d1_rope"],
-      2: ["dead", "d2_pause", "d2_scalf","d2_legext", "d2_calflp", "d2_qlext"],
-      3: ["d3_wchin", "d3_ezbarpd", "d3_mlat", "d3_tbar", "d3_bblat", "d3_deadhang"],
-      4: ["d4_incdb", "d4_ezcurl", "d4_pecfly", "d4_baycurl", "d4_revpec", "d4_abs", "d4_romleg"],
-      5: ["d5_hamcurl", "squat", "d5_rdl", "d5_standcalf","d5_srdl", "d5_backext", "d5_dbextrot"],
-      6: ["d6_wpull", "ohp","d6_ohcable", "d6_pendrow", "d6_dblatinc","d6_seattri", "d6_cablat", "d6_lowtrap"]
+      1: ["bench", "d1_precurl", "d1_wdips", "d1_incurl", "d1_facepull", "d1_hangleg", "d1_rope"],
+      2: ["dead", "d2_pause", "d2_scalf", "d2_legext", "d2_calflp", "d5_srdl"],
+      3: ["d3_wchin", "ohp", "d3_bblat", "d3_ezbarpd", "d3_tbar", "d3_dblat"],
+      4: ["d4_incdb", "d4_ezcurl", "d4_revpec", "d4_baycurl", "d4_pecfly", "d4_romleg", "d4_abs"],
+      5: ["squat", "d5_rdl", "d5_standcalf", "d5_hamcurl", "d5_backext", "d2_qlext", "d3_deadhang"],
+      6: ["d6_wpull", "d6_pendrow", "d6_ohcable", "d6_cablat", "d6_seattri", "d6_dblatinc", "d6_yraise", "d5_dbextrot"]
     };
-
     // Default Mobility Registry
     const DEFAULT_MOBILITY_REGISTRY = {
       "mob_bandtalar": { n: "Banded Posterior Talar Glide", d: "2 min", nt: "Heavy band, R ankle, 30s oscillate + 10s hold, repeat" },
