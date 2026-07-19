@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Tracker V5" />
-  <title>Workout Tracker V5.4</title>
+  <title>Workout Tracker V5.5</title>
   
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='55' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V5</text></svg>">
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='55' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V5</text></svg>">
@@ -17,7 +17,7 @@
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     input, select, textarea { font-size: 16px !important; outline: none !important; }
-    input:focus, textarea:focus, select:focus { border-color: #57534e !important; ring: 0 !important; }
+    input:focus, textarea:focus, select:focus { border-color: #57534e !important; }
     .touch-none { touch-action: none; }
     .cursor-grab { cursor: grab; }
     .active\:cursor-grabbing:active { cursor: grabbing; }
@@ -44,70 +44,76 @@
 
 // Default Registry: exercise attributes
     const DEFAULT_REGISTRY = {
-      // D1 — Chest + Bi + Rear Delt + Abs
-      "bench":        { n: "Bench Press",              w: true, wl: "bench",    s: 3, r: "cycle", nt: "AMRAP last" },
-      "d1_precurl":   { n: "Preacher Curl Machine",    s: 3, r: "6-10",  nt: "Short head" },
-      "d1_wdips":     { n: "Weighted Dips",             c: true, ct: "dips",     s: 3, r: "3-8",   nt: "Top+Backoff" },
-      "d1_incurl":    { n: "Inc DB Curls",              s: 3, r: "8-12",  nt: "Long head" },
-      "d1_facepull":  { n: "Face Pulls",                s: 2, r: "12-15", nt: "Rear delt" },
-      "d1_hangleg":   { n: "Hanging Leg Raises",        s: 2, r: "8-12",  nt: "Lower abs" },
+      // D1 — Push A: Bench + Dips + Biceps stretch work (fresh day after rest)
+      "bench":        { n: "Bench Press",              w: true, wl: "bench", fsl: true, s: 4, r: "cycle", nt: "AMRAP top set - S4 = FSL 5x5 paused" },
+      "d1_precurl":   { n: "Preacher Curl Machine",    s: 3, r: "8-12",  nt: "H4 - 95 to 3x12 before 110" },
+      "d1_wdips":     { n: "Weighted Dips",             c: true, ct: "dips",     s: 3, r: "3-8",   nt: "Top+Backoff - pause at depth" },
+      "d1_incurl":    { n: "Inc DB Curls (40°)",        s: 3, r: "8-12",  nt: "Head+back supported - 1-2s bottom pause" },
+      "d1_baycurl":   { n: "Bayesian Cable Curls",      s: 3, r: "10-15", nt: "Long-head stretch - ramp light, run last until tendon quiet" },
+      "d1_facepull":  { n: "Face Pulls",                s: 2, r: "12-15", nt: "Rear delt - archer full ROM" },
+      "d1_hangleg":   { n: "Hanging Leg Raises",        s: 2, r: "8-12",  nt: "Lower abs - no swing" },
       "d1_rope":      { n: "Rope Crunches",             s: 2, r: "10-15", nt: "Upper abs" },
 
-      // D2 — Legs
+      // D2 — Legs A (Deadlift)
       "dead":         { n: "Deadlift",                  w: true, wl: "deadlift", s: 3, r: "cycle", nt: "AMRAP last" },
-      "d2_pause":     { n: "Pause Squat",               s: 2, r: "4-8",   nt: "2s pause" },
-      "d2_scalf":     { n: "Seated Calf Raises",        s: 3, r: "12-20", nt: "Soleus" },
-      "d2_legext":    { n: "Leg Extensions",             s: 3, r: "8-12",  nt: "Quad" },
-      "d2_calflp":    { n: "Calf Raises on Leg Press",  s: 2, r: "12-15", nt: "Gastroc" },
-      "d2_qlext":     { n: "QL Extensions",              s: 1, r: "12-15", nt: "LEFT first" },
+      "d2_pause":     { n: "Pause Squat",               s: 2, r: "2-4",   nt: "H16 - 2s+ sit in the hole" },
+      "d2_scalf":     { n: "Seated Calf Raises",        s: 3, r: "8-15",  nt: "Full ROM - pause at bottom" },
+      "d2_legext":    { n: "Leg Extensions",             s: 2, r: "5-8",   nt: "Lean back - full squeeze" },
+      "d2_calflp":    { n: "Calf Raises on Leg Press",  s: 2, r: "12-15", nt: "H11V - easy on R ankle, stretch at depth" },
+      "d2_qlext":     { n: "QL Extensions",              s: 1, r: "8-12",  nt: "H3 - deep pause" },
 
-      // D3 — Back + Tri + Side Delts
+      // D3 — Pull A: OHP + Chins + Triceps (skulls then kickbacks)
       "d3_wchin":     { n: "Weighted Chin Ups",          c: true, ct: "chinups",  s: 3, r: "3-8",   nt: "Top+Backoff" },
-      "d3_ezbarpd":   { n: "EZ-Bar Cable Pushdowns",     s: 3, r: "6-10",  nt: "Lat/medial" },
-      "d3_tbar":      { n: "Chest Supported T-Bar Rows", s: 3, r: "6-10",  nt: "Full ROM" },
-      "d3_bblat":     { n: "Behind Back Cable Lat Raises", s: 2, r: "10-15", nt: "Side delt" },
-      "d3_deadhang":  { n: "Dead Hangs",                  s: 1, r: "1-3 min", nt: "Mobility" },
+      "d3_ezbarpd":   { n: "V-Bar Cable Pushdowns",      s: 2, r: "8-12",  nt: "Elbows pinned - pure triceps" },
+      "d3_tbar":      { n: "Unilateral Underhand CS Low Row", s: 2, r: "6-10", nt: "Lats only - no rotation - start left" },
+      "d3_bblat":     { n: "Behind Back Cable Lat Raises", s: 2, r: "8-15", nt: "H16V - side delt" },
+      "d3_deadhang":  { n: "Dead Hangs",                  s: 1, r: "2-3 min", nt: "Grip + decompression" },
       "d3_dblat":     { n: "DB Side Delt Raises",         s: 2, r: "10-15", nt: "Side delt" },
       
-      // D4 — Chest + Bi + Rear Delt + Abs (V2)
-      "d4_incdb":     { n: "Incline DB Press",           s: 3, r: "6-10",  nt: "Tucked elbows" },
-      "d4_ezcurl":    { n: "EZ Bar Curls",               s: 3, r: "6-10",  nt: "Short head" },
-      "d4_pecfly":    { n: "Pec Deck Flys",              s: 3, r: "8-12",  nt: "Reduced ROM - no deep stretch" },
-      "d4_baycurl":   { n: "Bayesian Cable Curls",       s: 3, r: "8-12",  nt: "Long head" },
-      "d4_revpec":    { n: "Rev Pec Deck",               s: 3, r: "8-12",  nt: "Rear delt" },
-      "d4_abs":       { n: "ABS Machine",                s: 2, r: "6-10",  nt: "Core" },
-      "d4_romleg":    { n: "Roman Chair Leg Raises",     s: 2, r: "10-15",  nt: "Lower abs" },
+      // D4 — Push B: Smith Incline + Braced biceps (day after chins)
+      "d4_incdb":     { n: "Incline Bench Press (Smith)", s: 3, r: "5-8",  nt: "H4 - 3rd finger on ring - pause on chest" },
+      "d4_bracedsup": { n: "Braced Supinated DB Curls",  s: 2, r: "8-12",  nt: "Pulldown-pad brace - active supination, pinky up" },
+      "d4_bracedham": { n: "Braced Hammer Curls",        s: 2, r: "8-12",  nt: "Same station - slow eccentric - S2 = 15-20 reps" },
+      "d4_pecfly":    { n: "Pec Deck Flys",              s: 3, r: "6-10",  nt: "Last hole - slow - no anterior delt stress" },
+      "d4_revpec":    { n: "Rev Pec Deck",               s: 3, r: "6-10",  nt: "Rear delt" },
+      "d4_abs":       { n: "ABS Machine",                s: 2, r: "6-10",  nt: "H8V - slow tempo - full ROM" },
+      "d4_romleg":    { n: "Roman Chair Leg Raises",     s: 2, r: "10-15",  nt: "Pause at top - pure low abs" },
+      // Retired slots — kept so old history keeps its names
+      "d4_ezcurl":    { n: "Seated DB Supinated Curls",  s: 3, r: "8-12",  nt: "Retired — replaced by d4_bracedsup" },
+      "d4_baycurl":   { n: "Hammer Curls",               s: 3, r: "8-12",  nt: "Retired — replaced by d4_bracedham" },
 
-      // D5 — Legs (V2)
-      "d5_hamcurl":   { n: "Hamstring Curls",            s: 2, r: "6-10",  nt: "Posterior" },
+      // D5 — Legs B (Squat)
+      "d5_hamcurl":   { n: "Tricep Cable Kickbacks",     s: 2, r: "15-20", nt: "H18V - lockout squeeze - light flush" },
       "squat":        { n: "Squat",                      w: true, wl: "squat",   s: 3, r: "cycle", nt: "AMRAP last" },
-      "d5_rdl":       { n: "RDL",                        s: 2, r: "6-10",  nt: "Post chain" },
-      "d5_standcalf": { n: "Standing Calf Raises",       s: 4, r: "8-15",  nt: "Gastroc" },
-      "d5_srdl":      { n: "Single-Leg RDL",            s: 3, r: "8-12",  nt: "Each side" },
-      "d5_backext":   { n: "Back Extensions",            s: 1, r: "10-15",  nt: "Lower back" },
-      "d5_dbextrot":  { n: "DB External Rotation",       s: 1, r: "10-15", nt: "Prehab" },
+      "d5_rdl":       { n: "RDL",                        s: 2, r: "4-8",   nt: "NB only - neutral spine on last rep" },
+      "d5_standcalf": { n: "Standing Calf Raises",       s: 4, r: "8-15",  nt: "H3 - pause at bottom" },
+      "d5_srdl":      { n: "Single-Leg RDL",            s: 3, r: "8-12",  nt: "Pause in full parallel - glute stabilizers" },
+      "d5_backext":   { n: "Back Extensions",            s: 1, r: "8-12",  nt: "H5" },
+      "d5_dbextrot":  { n: "DB External Rotation",       s: 1, r: "10-15", nt: "Prehab - start left" },
 
-      // D6 — Back + Tri + Side Delts (V2)
-      "d6_wpull":     { n: "Weighted Pull Ups",           c: true, ct: "pullups", s: 3, r: "3-8",   nt: "Top+Backoff" },
+      // D6 — Pull B: Pull-ups + Triceps stretch work (no pressing — fresh)
+      "d6_wpull":     { n: "Weighted Pull Ups",           c: true, ct: "pullups", s: 3, r: "3-8",   nt: "Top+Backoff - chin over bar" },
       "ohp":          { n: "OHP",                         w: true, wl: "ohp",     s: 3, r: "cycle", nt: "AMRAP last" },
-      "d6_ohcable":   { n: "Unilateral OH Cable Ext",   s: 3, r: "8-12",  nt: "Long head" },
-      "d6_pendrow":   { n: "Pendlay Rows",                s: 2, r: "5-8",   nt: "Explosive" },
-      "d6_dblatinc":  { n: "DB Lat Raises (Incline)",     s: 2, r: "8-12",  nt: "Side delt" },
-      "d6_seattri":   { n: "Seated Tricep Pushdown",    s: 2, r: "6-10",  nt: "Lat/medial" },
-      "d6_cablat":    { n: "Cable Lateral Raises",        s: 2, r: "8-12",  nt: "Side delt" },
+      "d6_saohext":   { n: "Single-Arm Cable OH Extension", s: 2, r: "10-15", nt: "Ramping slot - light 4-6wks - after V-bar until elbow signs off" },
+      "d6_pendrow":   { n: "Pendlay Rows",                s: 2, r: "5-8",   nt: "Slow eccentric - crisp pull" },
+      "d6_dblatinc":  { n: "DB Lat Raises (Incline)",     s: 2, r: "8-12",  nt: "H4 - tempo" },
+      "d6_seattri":   { n: "EZ Bar Skull Crushers",     s: 2, r: "8-12",  nt: "To bench edge - locked joints - hold 60, reps before load" },
+      "d6_cablat":    { n: "Side Delt Machine",           s: 2, r: "8-12",  nt: "H5V - slow" },
       "d6_lowtrap":   { n: "Lower Trap Cable Raise",    s: 2, r: "10-15", nt: "Lower traps" },
-      "d6_yraise":    { n: "Incline DB Y-Raises",        s: 2, r: "10-15", nt: "Lower traps" }
+      "d6_sapd":      { n: "Single-Arm Cable Pushdown",  s: 2, r: "10-15", nt: "Understudy for V-bar - free wrist path" },
+      "d6_ohcable":   { n: "EZ Bar OH Cable Extension",  s: 3, r: "8-12",  nt: "Retired (elbow) — replaced by d6_saohext" },
+      "d6_yraise":    { n: "Incline DB Y-Raises",        s: 2, r: "10-15", nt: "H4 - lower traps" }
       
     };
 
     // Default Schedule: which exercises on which day, in order
     const DEFAULT_SCHEDULE = {
-      1: ["bench", "d1_precurl", "d1_wdips", "d1_incurl", "d1_facepull", "d1_hangleg", "d1_rope"],
-      2: ["dead", "d2_pause", "d2_scalf", "d2_legext", "d2_calflp", "d5_srdl"],
-      3: ["d3_wchin", "ohp", "d3_bblat", "d3_ezbarpd", "d3_tbar", "d3_dblat"],
-      4: ["d4_incdb", "d4_ezcurl", "d4_revpec", "d4_baycurl", "d4_pecfly", "d4_romleg", "d4_abs"],
-      5: ["squat", "d5_rdl", "d5_standcalf", "d5_hamcurl", "d5_backext", "d2_qlext", "d3_deadhang"],
-      6: ["d6_wpull", "d6_pendrow", "d6_ohcable", "d6_cablat", "d6_seattri", "d6_dblatinc", "d6_yraise", "d5_dbextrot"]
+      1: ["bench", "d1_wdips", "d1_incurl", "d1_baycurl", "d1_facepull", "d1_hangleg", "d1_rope"],
+      2: ["dead", "d5_srdl", "d2_pause", "d2_legext", "d5_standcalf"],
+      3: ["ohp", "d3_tbar", "d3_bblat", "d3_dblat", "d3_wchin", "d6_seattri", "d5_hamcurl"],
+      4: ["d4_incdb", "d1_precurl", "d4_bracedsup", "d4_bracedham", "d4_pecfly", "d4_revpec", "d4_romleg", "d4_abs"],
+      5: ["squat", "d5_rdl", "d2_qlext", "d2_scalf", "d2_calflp", "d5_backext", "d3_deadhang"],
+      6: ["d6_wpull", "d6_cablat", "d6_yraise", "d3_ezbarpd", "d6_saohext", "d6_pendrow", "d6_dblatinc", "d5_dbextrot"]
     };
     // Default Mobility Registry
     const DEFAULT_MOBILITY_REGISTRY = {
@@ -153,13 +159,14 @@
     const dayShort = { 1: 'Push A', 2: 'Legs A', 3: 'Pull A', 4: 'Push B', 5: 'Legs B', 6: 'Pull B' };
 
     const defaultSettings = {
-      wendlerTM: { bench: 200, squat: 285, deadlift: 380, ohp: 120 },
+      wendlerTM: { bench: 170, squat: 285, deadlift: 380, ohp: 120 },
       calisthenics: {
         dips:    { top: 80, backoffPct: 72.5 },
         pullups: { top: 80, backoffPct: 72.5 },
         chinups: { top: 90, backoffPct: 72.5 }
       },
       wendlerPhase: '5s',    // current phase, auto-cycles
+      cyclesSinceDeload: 0,  // completed 5s→3s→531 cycles since last deload
       schedule: DEFAULT_SCHEDULE,
       registry: DEFAULT_REGISTRY,
       mobilityRegistry: DEFAULT_MOBILITY_REGISTRY,
@@ -178,6 +185,31 @@
     const calcBackoff = (top, pct) => Math.round((top * pct / 100) / 5) * 5;
     const calcWt = (tm, p) => Math.round(tm * p / 5) * 5;
 
+    // Proper CSV escaping: quote fields containing commas/quotes, double inner quotes
+    const csvCell = (v) => {
+      const s = String(v ?? '').replace(/\r?\n/g, ' ');
+      return /[",]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+
+    // Per-session merge for workout logs: union of session keys, newer _ts wins per session.
+    // Prevents whole-object last-write-wins from silently discarding a device's sessions.
+    const mergeLogs = (local, cloud) => {
+      if (!cloud) return local || { _updated: 0 };
+      if (!local) return cloud;
+      const cloudNewer = (cloud._updated || 0) > (local._updated || 0);
+      const merged = { _updated: Math.max(local._updated || 0, cloud._updated || 0) };
+      const keys = new Set([...Object.keys(local), ...Object.keys(cloud)]);
+      keys.delete('_updated'); keys.delete('_mob');
+      for (const k of keys) {
+        const l = local[k], c = cloud[k];
+        if (l && c) {
+          const lt = l._ts || 0, ct = c._ts || 0;
+          merged[k] = ct === lt ? (cloudNewer ? c : l) : (ct > lt ? c : l);
+        } else merged[k] = l || c;
+      }
+      return merged;
+    };
+
     const mergeData = (local, cloud) => {
       if (!cloud) return local;
       if (!local) return cloud;
@@ -190,6 +222,7 @@
       const s = { ...settings };
       if (!s.schedule) s.schedule = DEFAULT_SCHEDULE;
       if (!s.wendlerPhase) s.wendlerPhase = '5s';
+      if (s.cyclesSinceDeload == null) s.cyclesSinceDeload = 0;
       if (!s.registry) s.registry = DEFAULT_REGISTRY;
       if (!s.mobilityRegistry) s.mobilityRegistry = DEFAULT_MOBILITY_REGISTRY;
       if (!s.mobilitySchedule) {
@@ -380,6 +413,7 @@
       const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
 
       // Ref for cloud sync
+      const dirtyRef = useRef(false); // true when local changes haven't been pushed yet
       const stateRef = useRef({ workoutLogs, settings, completedSessions, bodyweightLogs, mobilityLogs });
       useEffect(() => { stateRef.current = { workoutLogs, settings, completedSessions, bodyweightLogs, mobilityLogs }; }, [workoutLogs, settings, completedSessions, bodyweightLogs, mobilityLogs]);
 
@@ -397,8 +431,13 @@
                 setSettings(merged); localStorage.setItem('v5-settings', JSON.stringify(merged));
               }
               if (data.logs) {
-                const merged = mergeData(workoutLogs, data.logs);
+                const { _mob, ...cloudLogs } = data.logs;
+                const merged = mergeLogs(workoutLogs, cloudLogs);
                 setWorkoutLogs(merged); localStorage.setItem('v5-logs', JSON.stringify(merged));
+                if (_mob) {
+                  const mergedMob = { ..._mob, ...mobilityLogs };
+                  setMobilityLogs(mergedMob); localStorage.setItem('v5-mobility', JSON.stringify(mergedMob));
+                }
               }
               if (data.completed) {
                 const merged = { ...completedSessions, ...data.completed };
@@ -421,7 +460,8 @@
         if (!supabaseRef.current || !userId) return;
         const s = stateRef.current;
         try {
-          await supabaseRef.current.upsertData(userId, { settings: s.settings, logs: s.workoutLogs, completed: s.completedSessions, bw: s.bodyweightLogs });
+          await supabaseRef.current.upsertData(userId, { settings: s.settings, logs: { ...s.workoutLogs, _mob: s.mobilityLogs }, completed: s.completedSessions, bw: s.bodyweightLogs });
+          dirtyRef.current = false;
           setSaveStatus('Saved ✔'); setTimeout(() => setSaveStatus(''), 2000);
         } catch (e) { console.error("Cloud save error:", e); setSaveStatus('Save Error ❌'); setTimeout(() => setSaveStatus(''), 3000); }
       };
@@ -433,9 +473,13 @@
         try {
           const data = await supabaseRef.current.getData(userId);
           if (!data) throw new Error("No data found in cloud");
-          ['v5-settings','v5-logs','v5-completed','v5-bw'].forEach(k => localStorage.removeItem(k));
+          ['v5-settings','v5-logs','v5-completed','v5-bw','v5-mobility'].forEach(k => localStorage.removeItem(k));
           if(data.settings) localStorage.setItem('v5-settings', JSON.stringify(ensureStructure(data.settings)));
-          if(data.logs) localStorage.setItem('v5-logs', JSON.stringify(data.logs));
+          if(data.logs) {
+            const { _mob, ...cloudLogs } = data.logs;
+            localStorage.setItem('v5-logs', JSON.stringify(cloudLogs));
+            if (_mob) localStorage.setItem('v5-mobility', JSON.stringify(_mob));
+          }
           if(data.completed) localStorage.setItem('v5-completed', JSON.stringify(data.completed));
           if(data.bodyweight) localStorage.setItem('v5-bw', JSON.stringify(data.bodyweight));
           alert("Success! Reloading..."); window.location.reload();
@@ -445,7 +489,7 @@
       // Auto-save every 60 seconds
       useEffect(() => {
         if (!supabaseRef.current || !userId) return;
-        const id = setInterval(() => { setSaveStatus('Auto-Saving... ⚡'); pushToCloud(); }, 60000);
+        const id = setInterval(() => { if (!dirtyRef.current) return; setSaveStatus('Auto-Saving... ⚡'); pushToCloud(); }, 60000);
         return () => clearInterval(id);
       }, [secretKey, userId]);
 
@@ -453,6 +497,7 @@
       const saveTimeout = useRef(null);
       const saveSettingsDebounced = useCallback((s) => {
         const payload = { ...s, _updated: Date.now() };
+        dirtyRef.current = true;
         setSettings(payload); localStorage.setItem('v5-settings', JSON.stringify(payload));
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
         saveTimeout.current = setTimeout(() => pushToCloud(), 2000);
@@ -460,16 +505,19 @@
 
       const saveLogsDebounced = useCallback((l) => {
         const payload = { ...l, _updated: Date.now() };
+        dirtyRef.current = true;
         setWorkoutLogs(payload); localStorage.setItem('v5-logs', JSON.stringify(payload));
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
         saveTimeout.current = setTimeout(() => pushToCloud(), 2000);
       }, [secretKey, userId]);
 
       const saveCompletion = (c) => {
+        dirtyRef.current = true;
         setCompletedSessions(c); localStorage.setItem('v5-completed', JSON.stringify(c)); pushToCloud();
       };
 
       const saveBW = (l) => {
+        dirtyRef.current = true;
         setBodyweightLogs(l); localStorage.setItem('v5-bw', JSON.stringify(l)); pushToCloud();
       };
 
@@ -481,6 +529,7 @@
         if (!ml[k]) ml[k] = {};
         if (!ml[k][slot]) ml[k][slot] = {};
         ml[k][slot][exId] = !ml[k][slot][exId];
+        dirtyRef.current = true;
         setMobilityLogs(ml);
         localStorage.setItem('v5-mobility', JSON.stringify(ml));
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
@@ -493,6 +542,7 @@
         if (!ml[k]._notes) ml[k]._notes = {};
         if (!ml[k]._notes[slot]) ml[k]._notes[slot] = {};
         ml[k]._notes[slot][exId] = note;
+        dirtyRef.current = true;
         setMobilityLogs(ml);
         localStorage.setItem('v5-mobility', JSON.stringify(ml));
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
@@ -507,13 +557,22 @@
       };
 
       const advancePhase = () => {
-        const np = nextPhase(settings.wendlerPhase);
-        saveSettingsDebounced({ ...settings, wendlerPhase: np });
+        const cur = settings.wendlerPhase;
+        let cycles = settings.cyclesSinceDeload || 0;
+        let np;
+        if (cur === '531') { cycles += 1; np = cycles >= 3 ? 'deload' : '5s'; }
+        else if (cur === 'deload') { cycles = 0; np = '5s'; }
+        else np = nextPhase(cur);
+        saveSettingsDebounced({ ...settings, wendlerPhase: np, cyclesSinceDeload: cycles });
       };
 
       // Session management
       const handleFinishDay = () => {
         const key = `${currentWeek}-${activeDay}`;
+        // Stamp today's date if the user never touched the date field (it displays a default but only saves on change)
+        if (!workoutLogs[key]?._meta?.date) {
+          saveSessionMeta(currentWeek, activeDay, 'date', new Date().toISOString().split('T')[0]);
+        }
         saveCompletion({ ...completedSessions, [key]: true });
         let nextW = currentWeek, nextD = activeDay + 1;
         if (nextD > 6) { nextD = 1; nextW = currentWeek + 1; advancePhase(); }
@@ -541,12 +600,18 @@
       const logSet = (w, d, ex, i, v) => {
         const k = `${w}-${d}`; const nl = { ...workoutLogs };
         if (!nl[k]) nl[k] = {}; if (!nl[k][ex]) nl[k][ex] = { sets: [], notes: '' };
-        nl[k][ex].sets[i] = v; saveLogsDebounced(nl);
+        nl[k][ex].sets[i] = v;
+        nl[k][ex].n = settings.registry[ex]?.n || nl[k][ex].n; // stamp name at log time so later renames don't rewrite history
+        nl[k]._ts = Date.now();
+        saveLogsDebounced(nl);
       };
       const logNotes = (w, d, ex, v) => {
         const k = `${w}-${d}`; const nl = { ...workoutLogs };
         if (!nl[k]) nl[k] = {}; if (!nl[k][ex]) nl[k][ex] = { sets: [], notes: '' };
-        nl[k][ex].notes = v; saveLogsDebounced(nl);
+        nl[k][ex].notes = v;
+        nl[k][ex].n = settings.registry[ex]?.n || nl[k][ex].n;
+        nl[k]._ts = Date.now();
+        saveLogsDebounced(nl);
       };
       const getLog = (w, d, ex) => workoutLogs[`${w}-${d}`]?.[ex] || { sets: [], notes: '' };
 
@@ -554,7 +619,7 @@
       const saveSessionMeta = (w, d, field, value) => {
         const k = `${w}-${d}`; const nl = { ...workoutLogs };
         if (!nl[k]) nl[k] = {}; if (!nl[k]._meta) nl[k]._meta = { date: '', duration: '' };
-        nl[k]._meta[field] = value; saveLogsDebounced(nl);
+        nl[k]._meta[field] = value; nl[k]._ts = Date.now(); saveLogsDebounced(nl);
       };
 
       const jumpToSession = (w, d) => { setCurrentWeek(w); setActiveDay(d); setActiveTab('workout'); window.scrollTo(0, 0); };
@@ -767,20 +832,23 @@
       // CSV Export
       const exportToCSV = () => {
         const rows = [['Week','Day','Date','Duration','Exercise ID','Exercise Name','Set 1','Set 2','Set 3','Set 4','Set 5','Notes'].join(',')];
-        const maxWeek = Math.max(1, ...Object.keys(workoutLogs).filter(k => k !== '_updated').map(k => parseInt(k.split('-')[0])).filter(n => !isNaN(n)));
+        const maxWeek = Math.max(1, ...Object.keys(workoutLogs).filter(k => k.includes('-')).map(k => parseInt(k.split('-')[0])).filter(n => !isNaN(n)));
         for (let w = 1; w <= maxWeek; w++) {
           for (let d = 1; d <= 6; d++) {
             const data = workoutLogs[`${w}-${d}`]; if (!data) continue;
             const meta = data._meta || {};
-            const entries = Object.entries(data).filter(([key]) => key !== '_meta');
+            const entries = Object.entries(data).filter(([key]) => key !== '_meta' && key !== '_ts');
             for (const [exId, exData] of entries) {
-              const exName = settings.registry[exId]?.n || exId;
+              const exName = exData.n || settings.registry[exId]?.n || exId; // stamped name wins over current registry
               const sets = exData.sets || [];
-              const notes = (exData.notes || '').replace(/,/g, ';').replace(/\n/g, ' ');
-              const setPadded = []; for (let i = 0; i < 5; i++) setPadded.push((sets[i] || '').replace?.(/,/g, ';') || '');
-              rows.push([w, d, meta.date||'', meta.duration||'', exId, `"${exName}"`, ...setPadded, `"${notes}"`].join(','));
+              const setPadded = []; for (let i = 0; i < 5; i++) setPadded.push(csvCell(sets[i] || ''));
+              rows.push([w, d, meta.date||'', meta.duration||'', exId, csvCell(exName), ...setPadded, csvCell(exData.notes || '')].join(','));
             }
           }
+        }
+        if (bodyweightLogs.length) {
+          rows.push(''); rows.push('Bodyweight Log'); rows.push('Date,Weight (lbs)');
+          bodyweightLogs.forEach(e => rows.push(`${e.date},${e.weight}`));
         }
         const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -793,6 +861,30 @@
         const keys = Object.keys(workoutLogs).filter(k => k !== '_updated' && k.includes('-'));
         if (keys.length === 0) return 1;
         return Math.max(1, ...keys.map(k => parseInt(k.split('-')[0])).filter(n => !isNaN(n)));
+      };
+
+      // Best recent e1RM (Epley) per Wendler lift, parsed from logged sets like "150x5+", "205NBx3"
+      const liftExId = { bench: 'bench', squat: 'squat', deadlift: 'dead', ohp: 'ohp' };
+      const recentE1RM = (lift) => {
+        const exId = liftExId[lift];
+        const maxW = getMaxWeek();
+        let best = null;
+        for (const k of Object.keys(workoutLogs)) {
+          if (!k.includes('-')) continue;
+          const wk = parseInt(k.split('-')[0]);
+          if (isNaN(wk) || wk < maxW - 7) continue; // last ~8 weeks only
+          const ex = workoutLogs[k]?.[exId];
+          if (!ex || !Array.isArray(ex.sets)) continue;
+          for (const s of ex.sets) {
+            const m = String(s || '').match(/(\d+(?:\.\d+)?)[^x\d]*x\s*(\d+)/i);
+            if (!m) continue;
+            const w = parseFloat(m[1]); const r = parseInt(m[2]);
+            if (w < 45 || r < 1 || r > 15) continue; // ignore warmup-ish / unparseable
+            const e = w * (1 + r / 30);
+            if (!best || e > best.e) best = { e, w, r, wk };
+          }
+        }
+        return best;
       };
 
       // ---- MODALS ----
@@ -809,6 +901,19 @@
           const newRegistry = { ...settings.registry };
           newRegistry[exId] = { ...newRegistry[exId], n: name, s: parseInt(sets) || 3, r: reps, nt: notes };
           saveSettingsDebounced({ ...settings, registry: newRegistry });
+          onClose();
+        };
+
+        // New movement in an old slot? Create a fresh ID so histories stay separate instead of renaming in place.
+        const handleDuplicate = () => {
+          if (!confirm(`Create a new variant of "${name}"?\n\nThe old ID keeps its history; a new ID starts clean and takes this slot in the schedule.`)) return;
+          const base = exId.replace(/_v\d+$/, '');
+          let v = 2, newId = `${base}_v${v}`;
+          while (settings.registry[newId]) { v++; newId = `${base}_v${v}`; }
+          const newRegistry = { ...settings.registry, [newId]: { ...settings.registry[exId], n: name, s: parseInt(sets) || 3, r: reps, nt: notes } };
+          const newSchedule = JSON.parse(JSON.stringify(settings.schedule));
+          for (const d in newSchedule) newSchedule[d] = newSchedule[d].map(id => id === exId ? newId : id);
+          saveSettingsDebounced({ ...settings, registry: newRegistry, schedule: newSchedule });
           onClose();
         };
 
@@ -851,7 +956,8 @@
                   </div>
                 )}
               </div>
-              <div className="flex gap-3 mt-6">
+              <button onClick={handleDuplicate} className="w-full mt-4 py-2.5 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100">🔀 New Variant — fresh ID + separate history, takes this slot</button>
+              <div className="flex gap-3 mt-3">
                 <button onClick={onClose} className="flex-1 py-2.5 text-sm font-bold text-stone-500 bg-stone-100 rounded-lg">Cancel</button>
                 <button onClick={handleSave} className="flex-1 py-2.5 text-sm font-bold text-white bg-stone-800 rounded-lg">Save</button>
               </div>
@@ -1411,7 +1517,7 @@
                   <span>📊</span> Export Logs to CSV
                 </button>
                 <button onClick={() => {
-                  const blob = new Blob([JSON.stringify({ settings, logs: workoutLogs, bw: bodyweightLogs, completed: completedSessions }, null, 2)], { type: 'application/json' });
+                  const blob = new Blob([JSON.stringify({ settings, logs: workoutLogs, bw: bodyweightLogs, completed: completedSessions, mobility: mobilityLogs }, null, 2)], { type: 'application/json' });
                   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `v5-backup-${new Date().toISOString().split('T')[0]}.json`;
                   document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 }} className="w-full bg-stone-100 text-stone-700 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-stone-200 transition-colors">
@@ -1440,7 +1546,10 @@
                   {PHASE_DISPLAY[phase]}
                 </button>
               </div>
-              <p className="text-xs text-stone-500">Phase auto-advances after each full week (6 sessions). Tap to override or trigger deload.</p>
+              <p className="text-xs text-stone-500">Phase auto-advances after each full week (6 sessions). Every 3rd completed cycle rolls into Deload automatically; tap to override.</p>
+              <p className={`text-xs mt-2 font-bold ${(settings.cyclesSinceDeload||0) >= 3 ? 'text-rose-600' : (settings.cyclesSinceDeload||0) === 2 ? 'text-amber-600' : 'text-stone-400'}`}>
+                {settings.cyclesSinceDeload || 0} cycle{(settings.cyclesSinceDeload||0) === 1 ? '' : 's'} since last deload{(settings.cyclesSinceDeload||0) >= 3 ? ' — deload now' : (settings.cyclesSinceDeload||0) === 2 ? ' — deload after this cycle' : ''}
+              </p>
               
               <div className="flex gap-2 mt-4">
                 {WENDLER_PHASES.map((p, i) => (
@@ -1452,23 +1561,38 @@
             </div>
 
             {/* Wendler Weights */}
-            {['bench', 'squat', 'deadlift', 'ohp'].map(lift => (
+            {['bench', 'squat', 'deadlift', 'ohp'].map(lift => {
+              const best = recentE1RM(lift);
+              const tm = settings.wendlerTM[lift];
+              const tmPct = best ? Math.round(tm / best.e * 100) : null;
+              const latestBW = bodyweightLogs.length ? bodyweightLogs[bodyweightLogs.length - 1].weight : null;
+              return (
               <div key={lift} className="bg-white rounded-xl shadow-sm border border-stone-200 p-4">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-bold text-stone-800 capitalize text-lg">{lift}</h3>
-                  <span className="text-xs bg-stone-100 px-2 py-1 rounded text-stone-500 font-mono">TM: {settings.wendlerTM[lift]}</span>
+                  <span className="text-xs bg-stone-100 px-2 py-1 rounded text-stone-500 font-mono">TM: {tm}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   {pcts.map((s, i) => (
                     <div key={i} className={`text-center p-3 rounded-lg ${i === 2 ? 'bg-stone-800 text-white' : 'bg-stone-50'}`}>
-                      <div className={`text-lg font-bold font-mono ${i === 2 ? 'text-white' : 'text-stone-800'}`}>{calcWt(settings.wendlerTM[lift], s.p)}</div>
+                      <div className={`text-lg font-bold font-mono ${i === 2 ? 'text-white' : 'text-stone-800'}`}>{calcWt(tm, s.p)}</div>
                       <div className={`text-[10px] font-bold mt-1 ${i === 2 ? 'text-stone-300' : 'text-stone-400'}`}>×{s.r}</div>
                       <div className={`text-[9px] mt-0.5 ${i === 2 ? 'text-stone-400' : 'text-stone-300'}`}>{Math.round(s.p * 100)}%</div>
                     </div>
                   ))}
                 </div>
+                {lift === 'bench' && phase !== 'deload' && (
+                  <p className="text-[10px] text-stone-400 mt-2 font-mono">FSL: {calcWt(tm, pcts[0].p)} × 5×5 paused, after the top set</p>
+                )}
+                {best && (
+                  <div className="mt-3 pt-2 border-t border-stone-100 flex justify-between items-center">
+                    <span className="text-[10px] text-stone-500 font-mono">e1RM ≈ {Math.round(best.e)} <span className="text-stone-300">({best.w}×{best.r}, W{best.wk})</span>{latestBW ? <span className="text-stone-400"> · {(best.e / latestBW).toFixed(2)}×BW</span> : null}</span>
+                    <span className={`text-[10px] font-bold ${tmPct > 92 ? 'text-rose-600' : tmPct > 90 ? 'text-amber-600' : 'text-emerald-600'}`}>TM {tmPct}% {tmPct > 90 ? '— lower TM' : '✓'}</span>
+                  </div>
+                )}
               </div>
-            ))}
+              );
+            })}
 
             {/* Calisthenics overview */}
             <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-4">
@@ -1555,6 +1679,7 @@
                 let tgt = '';
                 if (ex.w) {
                   tgt = pcts.map(s => `${calcWt(settings.wendlerTM[ex.wl], s.p)}×${s.r}`).join('  /  ');
+                  if (ex.fsl && phase !== 'deload') tgt += `  ·  FSL ${calcWt(settings.wendlerTM[ex.wl], pcts[0].p)}×5×5 paused`;
                 } else if (ex.c) {
                   const topVal = settings.calisthenics[ex.ct]?.top || 0;
                   const pctVal = settings.calisthenics[ex.ct]?.backoffPct || 75;
@@ -1636,7 +1761,7 @@
           <div className="p-4 max-w-md mx-auto">
             <h2 className="font-bold text-stone-800 mb-6 text-2xl">Logbook</h2>
             {Array.from({ length: maxWeek }, (_, i) => maxWeek - i).map(wk => {
-              const hasData = [1,2,3,4,5,6].some(d => workoutLogs[`${wk}-${d}`] && Object.keys(workoutLogs[`${wk}-${d}`]).filter(k => k !== '_meta').length > 0);
+              const hasData = [1,2,3,4,5,6].some(d => workoutLogs[`${wk}-${d}`] && Object.keys(workoutLogs[`${wk}-${d}`]).filter(k => k !== '_meta' && k !== '_ts').length > 0);
               if (!hasData) return null;
               return (
                 <div key={wk} className="mb-6 bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
@@ -1647,7 +1772,7 @@
                   <div className="p-4 space-y-4">
                     {[1,2,3,4,5,6].map(d => {
                       const data = workoutLogs[`${wk}-${d}`]; if (!data) return null;
-                      const entries = Object.entries(data).filter(([key]) => key !== '_meta');
+                      const entries = Object.entries(data).filter(([key]) => key !== '_meta' && key !== '_ts');
                       if (entries.length === 0) return null;
                       const meta = data._meta || {};
                       const dateStr = meta.date ? new Date(meta.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
@@ -1667,7 +1792,7 @@
                             {entries.map(([id, v]) => {
                               const sets = v.sets?.filter(isFilled) || [];
                               if (!sets.length && !v.notes) return null;
-                              const exName = settings.registry[id]?.n || id;
+                              const exName = v.n || settings.registry[id]?.n || id;
                               return (
                                 <div key={id} className="text-sm">
                                   <span className="text-stone-800 font-medium">{exName}: </span>
@@ -1709,7 +1834,7 @@
             <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
                 <span className="font-bold text-stone-700">Trend</span>
-                <span className={`font-bold font-mono ${bodyweightLogs.length > 1 && bodyweightLogs[bodyweightLogs.length-1].weight > bodyweightLogs[0].weight ? 'text-emerald-600' : 'text-stone-400'}`}>
+                <span className="font-bold font-mono text-stone-600">
                   {bodyweightLogs.length > 1 ? `${(bodyweightLogs[bodyweightLogs.length-1].weight - bodyweightLogs[0].weight) > 0 ? '+' : ''}${(bodyweightLogs[bodyweightLogs.length-1].weight - bodyweightLogs[0].weight).toFixed(1)} lbs` : '—'}
                 </span>
               </div>
@@ -1733,7 +1858,7 @@
           {/* Header */}
           <div className="bg-stone-900 text-stone-50 px-5 py-4 flex justify-between items-center shadow-md sticky top-0 z-40">
             <div>
-              <h1 className="text-base font-bold tracking-tight">Tracker V5.4</h1>
+              <h1 className="text-base font-bold tracking-tight">Tracker V5.5</h1>
               <p className="text-stone-500 text-[10px] font-medium tracking-wide uppercase">HYPERTROPHY + STRENGTH</p>
             </div>
             <div className="flex items-center gap-2">
