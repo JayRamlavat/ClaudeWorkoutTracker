@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Tracker V5" />
-  <title>Workout Tracker V5.5</title>
+  <title>Workout Tracker V7.1</title>
   
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='55' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V5</text></svg>">
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231c1917' rx='22'/><text x='50' y='70' font-size='55' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>V5</text></svg>">
@@ -44,92 +44,81 @@
 
 // Default Registry: exercise attributes
     const DEFAULT_REGISTRY = {
-      // D1 — Push A: Bench + Dips + Biceps stretch work (fresh day after rest)
-      "bench":        { n: "Bench Press",              w: true, wl: "bench", fsl: true, s: 4, r: "cycle", nt: "AMRAP top set - S4 = FSL 5x5 paused" },
-      "d1_precurl":   { n: "Preacher Curl Machine",    s: 3, r: "8-12",  nt: "H4 - 95 to 3x12 before 110" },
+      // v7.1 (2026-07-27) — TMs reset to ~85% e1RM, AMRAP caps, atomic new-exercise IDs
+      // D1 — Push A: Bench + Dips + Biceps (fresh day after rest)
+      "bench":        { n: "Bench Press",              w: true, wl: "bench", fsl: true, s: 4, r: "cycle", nt: "AMRAP cap RIR1 (+5 max) - S4 = back-off: top -15%, AMRAP, stop RIR1-2, paused" },
+      "d1_precurl":   { n: "Preacher Curl Machine",    s: 3, r: "8-12",  nt: "H4 - T@w1: 95 to 3x12 before 110" },
       "d1_wdips":     { n: "Weighted Dips",             c: true, ct: "dips",     s: 3, r: "3-8",   nt: "Top+Backoff - pause at depth" },
       "d1_incurl":    { n: "Inc DB Curls (40°)",        s: 3, r: "8-12",  nt: "Head+back supported - 1-2s bottom pause" },
-      "d1_baycurl":   { n: "Bayesian Cable Curls",      s: 3, r: "10-15", nt: "Long-head stretch - ramp light, run last until tendon quiet" },
-      "d1_facepull":  { n: "Face Pulls",                s: 2, r: "12-15", nt: "Rear delt - archer full ROM" },
-      "d1_hangleg":   { n: "Hanging Leg Raises",        s: 2, r: "8-12",  nt: "Lower abs - no swing" },
-      "d1_rope":      { n: "Rope Crunches",             s: 2, r: "10-15", nt: "Upper abs" },
+      "d1_baycurl":   { n: "Bayesian Cable Curls",      s: 3, r: "8-12", nt: "Long-head stretch - ramp light, run last until tendon quiet" },
+      "d1_facepull":  { n: "Single Arm Reverse Pec Deck", s: 2, r: "6-10", nt: "Rear delt - full ROM" },
+      "d1_hangleg":   { n: "Hanging Leg Raises",        s: 3, r: "8-12",  nt: "Lower abs - NO swing (swing = R-shoulder pain)" },
+      "d1_rope":      { n: "Rope Crunches",             s: 2, r: "8-12", nt: "Upper abs" },
 
-      // D2 — Legs A (Deadlift)
-      "dead":         { n: "Deadlift",                  w: true, wl: "deadlift", s: 3, r: "cycle", nt: "AMRAP last" },
-      "d2_pause":     { n: "Pause Squat",               s: 2, r: "2-4",   nt: "H16 - 2s+ sit in the hole" },
+      // D2 — Legs A (Deadlift) + Shrugs + Seated Curl
+      "dead":         { n: "Deadlift",                  w: true, wl: "deadlift", s: 3, r: "cycle", nt: "AMRAP last - cap RIR1 (+5 max)" },
+      "d2_pause":     { n: "Pause Squat",               s: 2, r: "4-6",   nt: "H16 - 2s+ sit in the hole" },
+      "d2_seatedhamstringcurls": { n: "Seated Leg Curl", s: 2, r: "8-12", nt: "NEW tissue - RIR 2-3 first 2 wks - pause at full flexion" },
+      "d2_shrug":     { n: "Barbell Shrugs",            s: 3, r: "8-12",  nt: "Straps OK - full ROM - 1s top hold - no roll" },
       "d2_scalf":     { n: "Seated Calf Raises",        s: 3, r: "8-15",  nt: "Full ROM - pause at bottom" },
-      "d2_legext":    { n: "Leg Extensions",             s: 2, r: "5-8",   nt: "Lean back - full squeeze" },
+      "d2_legext":    { n: "Leg Extensions",             s: 2, r: "6-10",   nt: "Lean back - full squeeze" },
       "d2_calflp":    { n: "Calf Raises on Leg Press",  s: 2, r: "12-15", nt: "H11V - easy on R ankle, stretch at depth" },
       "d2_qlext":     { n: "QL Extensions",              s: 1, r: "8-12",  nt: "H3 - deep pause" },
 
-      // D3 — Pull A: OHP + Chins + Triceps (skulls then kickbacks)
+      // D3 — Pull A: Chins + OHP + Side Delts + Triceps
       "d3_wchin":     { n: "Weighted Chin Ups",          c: true, ct: "chinups",  s: 3, r: "3-8",   nt: "Top+Backoff" },
-      "d3_ezbarpd":   { n: "V-Bar Cable Pushdowns",      s: 2, r: "8-12",  nt: "Elbows pinned - pure triceps" },
-      "d3_tbar":      { n: "Unilateral Underhand CS Low Row", s: 2, r: "6-10", nt: "Lats only - no rotation - start left" },
-      "d3_bblat":     { n: "Behind Back Cable Lat Raises", s: 2, r: "8-15", nt: "H16V - side delt" },
-      "d3_deadhang":  { n: "Dead Hangs",                  s: 1, r: "2-3 min", nt: "Grip + decompression" },
-      "d3_dblat":     { n: "DB Side Delt Raises",         s: 2, r: "10-15", nt: "Side delt" },
-      
-      // D4 — Push B: Smith Incline + Braced biceps (day after chins)
-      "d4_incdb":     { n: "Incline Bench Press (Smith)", s: 3, r: "5-8",  nt: "H4 - 3rd finger on ring - pause on chest" },
+      "ohp":          { n: "OHP",                         w: true, wl: "ohp",     s: 3, r: "cycle", nt: "AMRAP last - cap RIR1 (+5 max)" },
+      "d3_ezbarpd":   { n: "V-Bar Cable Pushdowns",      s: 3, r: "6-10",  nt: "Elbows pinned - pure triceps" },
+      "d3_tbar":      { n: "Unilateral Underhand CS Low Row", s: 3, r: "6-10", nt: "Lats only - no rotation - start left" },
+      "d3_bblat":     { n: "Behind Back Cable Lateral Raises", s: 3, r: "8-12", nt: "H16V - side delt - 3-session stall = half-hole or tempo" },
+      "d3_deadhang":  { n: "Dead Hangs",                  s: 1, r: "2-3 min", nt: "Grip + decompression (unscheduled - parked for mobility redo)" },
+      "d3_dblat":     { n: "DB Side Delt Raises",         s: 2, r: "10-20", nt: "Strict, no swing - jump DB only at 20 reps (5lb = 33% jump)" },
+
+      // D4 — Push B: Incline + Rear Delts + Braced biceps
+      "d4_incdb":     { n: "Incline Bench Press",       s: 3, r: "5-8",  nt: "H4 - 3rd finger on ring - pause on chest" },
       "d4_bracedsup": { n: "Braced Supinated DB Curls",  s: 2, r: "8-12",  nt: "Pulldown-pad brace - active supination, pinky up" },
       "d4_bracedham": { n: "Braced Hammer Curls",        s: 2, r: "8-12",  nt: "Same station - slow eccentric - S2 = 15-20 reps" },
       "d4_pecfly":    { n: "Pec Deck Flys",              s: 3, r: "6-10",  nt: "Last hole - slow - no anterior delt stress" },
-      "d4_revpec":    { n: "Rev Pec Deck",               s: 3, r: "6-10",  nt: "Rear delt" },
-      "d4_abs":       { n: "ABS Machine",                s: 2, r: "6-10",  nt: "H8V - slow tempo - full ROM" },
+      "d4_revpec":    { n: "Rev Pec Deck",               s: 3, r: "6-10",  nt: "Rear delt - weak point: keep 2nd in session" },
+      "d4_abs":       { n: "ABS Machine",                s: 3, r: "8-12",  nt: "H8V - slow tempo - full ROM" },
       "d4_romleg":    { n: "Roman Chair Leg Raises",     s: 2, r: "10-15",  nt: "Pause at top - pure low abs" },
       // Retired slots — kept so old history keeps its names
       "d4_ezcurl":    { n: "Seated DB Supinated Curls",  s: 3, r: "8-12",  nt: "Retired — replaced by d4_bracedsup" },
       "d4_baycurl":   { n: "Hammer Curls",               s: 3, r: "8-12",  nt: "Retired — replaced by d4_bracedham" },
 
-      // D5 — Legs B (Squat)
-      "d5_hamcurl":   { n: "Tricep Cable Kickbacks",     s: 2, r: "15-20", nt: "H18V - lockout squeeze - light flush" },
-      "squat":        { n: "Squat",                      w: true, wl: "squat",   s: 3, r: "cycle", nt: "AMRAP last" },
+      // D5 — Legs B (Squat) + Upright Row + Seated Curl 2nd exposure
+      "d5_hamcurl":   { n: "Single Arm Cable Tricep Pushdowns", s: 2, r: "8-12", nt: "" },
+      "squat":        { n: "Squat",                      w: true, wl: "squat",   s: 3, r: "cycle", nt: "AMRAP last - cap RIR1 (+5 max)" },
       "d5_rdl":       { n: "RDL",                        s: 2, r: "4-8",   nt: "NB only - neutral spine on last rep" },
-      "d5_standcalf": { n: "Standing Calf Raises",       s: 4, r: "8-15",  nt: "H3 - pause at bottom" },
-      "d5_srdl":      { n: "Single-Leg RDL",            s: 3, r: "8-12",  nt: "Pause in full parallel - glute stabilizers" },
+      "d5_seatedcurl": { n: "Seated Leg Curls",          s: 2, r: "10-15", nt: "2nd weekly exposure - RIR 2 - full squeeze" },
+      "d5_standcalf": { n: "Standing Calf Raises",       s: 4, r: "8-12",  nt: "H3 - pause at bottom" },
+      "d5_srdl":      { n: "Single-Leg RDL",            s: 1, r: "12-20",  nt: "Pause in full parallel - glute stabilizers" },
       "d5_backext":   { n: "Back Extensions",            s: 1, r: "8-12",  nt: "H5" },
       "d5_dbextrot":  { n: "DB External Rotation",       s: 1, r: "10-15", nt: "Prehab - start left" },
 
-      // D6 — Pull B: Pull-ups + Triceps stretch work (no pressing — fresh)
+      // D6 — Pull B: Pull-ups + Side Delts + Triceps + BSS
       "d6_wpull":     { n: "Weighted Pull Ups",           c: true, ct: "pullups", s: 3, r: "3-8",   nt: "Top+Backoff - chin over bar" },
-      "ohp":          { n: "OHP",                         w: true, wl: "ohp",     s: 3, r: "cycle", nt: "AMRAP last" },
-      "d6_saohext":   { n: "Single-Arm Cable OH Extension", s: 2, r: "10-15", nt: "Ramping slot - light 4-6wks - after V-bar until elbow signs off" },
-      "d6_pendrow":   { n: "Pendlay Rows",                s: 2, r: "5-8",   nt: "Slow eccentric - crisp pull" },
-      "d6_dblatinc":  { n: "DB Lat Raises (Incline)",     s: 2, r: "8-12",  nt: "H4 - tempo" },
-      "d6_seattri":   { n: "EZ Bar Skull Crushers",     s: 2, r: "8-12",  nt: "To bench edge - locked joints - hold 60, reps before load" },
-      "d6_cablat":    { n: "Side Delt Machine",           s: 2, r: "8-12",  nt: "H5V - slow" },
-      "d6_lowtrap":   { n: "Lower Trap Cable Raise",    s: 2, r: "10-15", nt: "Lower traps" },
+      "d6_saohext":   { n: "Single-Arm Cable OH Extension", s: 3, r: "8-12", nt: "Ramping slot - light 4-6wks - RIR 2-3, reps before load" },
+      "d6_pendrow":   { n: "Chest Supported T-BAR Rows",  s: 3, r: "5-8",   nt: "Chest stays on pad" },
+      "d6_dblatinc":  { n: "Incline BS DB Lateral Raises", s: 2, r: "10-20",  nt: "H4 - tempo - jump DB only at 20 reps" },
+      "d6_seattri":   { n: "EZ Bar Skull Crushers",     s: 3, r: "8-12",  nt: "To bench edge - locked joints - RIR 2-3, reps before load" },
+      "d6_cablat":    { n: "Side Delt Machine",           s: 3, r: "8-12",  nt: "H5V - slow" },
+      "d6_bss":       { n: "Bulgarian Split Squat (Quad)", s: 2, r: "8-12", nt: "Front heel ELEVATED (plate) - upright torso, knee forward - start left - goblet if grip fried" },
+      "d6_lowtrap":   { n: "Lower Trap Cable Raise",    s: 2, r: "10-15", nt: "Lower traps - fresh slot on squat day" },
       "d6_sapd":      { n: "Single-Arm Cable Pushdown",  s: 2, r: "10-15", nt: "Understudy for V-bar - free wrist path" },
       "d6_ohcable":   { n: "EZ Bar OH Cable Extension",  s: 3, r: "8-12",  nt: "Retired (elbow) — replaced by d6_saohext" },
-      "d6_yraise":    { n: "Incline DB Y-Raises",        s: 2, r: "10-15", nt: "H4 - lower traps" }
+      "d6_yraise":    { n: "Incline DB Y-Raises",        s: 2, r: "10-20", nt: "H4 - lower traps (unscheduled - parked for posture routine)" }
       
     };
 
-    // Default Schedule: which exercises on which day, in order
+    // Default Schedule: which exercises on which day, in order — v7.1 (2026-07-27)
     const DEFAULT_SCHEDULE = {
-      1: ["bench", "d1_wdips", "d1_incurl", "d1_baycurl", "d1_facepull", "d1_hangleg", "d1_rope"],
-      2: ["dead", "d5_srdl", "d2_pause", "d2_legext", "d5_standcalf"],
-      3: ["ohp", "d3_tbar", "d3_bblat", "d3_dblat", "d3_wchin", "d6_seattri", "d5_hamcurl"],
-      4: ["d4_incdb", "d1_precurl", "d4_bracedsup", "d4_bracedham", "d4_pecfly", "d4_revpec", "d4_romleg", "d4_abs"],
-      5: ["squat", "d5_rdl", "d2_qlext", "d2_scalf", "d2_calflp", "d5_backext", "d3_deadhang"],
-      6: ["d6_wpull", "d6_cablat", "d6_yraise", "d3_ezbarpd", "d6_saohext", "d6_pendrow", "d6_dblatinc", "d5_dbextrot"]
-    };
-    // Default Mobility Registry
-    const DEFAULT_MOBILITY_REGISTRY = {
-      "mob_bandtalar": { n: "Banded Posterior Talar Glide", d: "2 min", nt: "Heavy band, R ankle, 30s oscillate + 10s hold, repeat" },
-      "mob_wallankle": { n: "Loaded Wall Ankle Hold", d: "3×30-45s", nt: "KB goblet, R foot 5in from wall, knee to wall, heel down" },
-      "mob_goblethold": { n: "Deep Goblet Squat Hold", d: "2×45-60s", nt: "Knees forward, R heel down, sit in bottom" }
-    };
-
-    // Default Mobility Schedule: { day: { pre: [...ids], post: [...ids] } }
-    const DEFAULT_MOBILITY_SCHEDULE = {
-      1: { pre: [], post: ["mob_bandtalar", "mob_wallankle"] },
-      2: { pre: ["mob_bandtalar", "mob_wallankle", "mob_goblethold"], post: [] },
-      3: { pre: [], post: ["mob_bandtalar", "mob_wallankle"] },
-      4: { pre: [], post: ["mob_bandtalar", "mob_wallankle"] },
-      5: { pre: ["mob_bandtalar", "mob_wallankle", "mob_goblethold"], post: [] },
-      6: { pre: [], post: ["mob_bandtalar", "mob_wallankle"] }
+      1: ["bench", "d1_precurl", "d1_wdips", "d1_facepull", "d1_incurl", "d1_hangleg", "d1_rope"],
+      2: ["dead", "d2_pause", "d2_seatedhamstringcurls", "d5_standcalf", "d2_legext", "d5_srdl", "d2_shrug"],
+      3: ["d3_wchin", "ohp", "d3_bblat", "d3_dblat", "d6_pendrow", "d6_seattri", "d5_hamcurl"],
+      4: ["d4_incdb", "d4_revpec", "d4_bracedsup", "d4_bracedham", "d1_baycurl", "d4_pecfly", "d4_abs"],
+      5: ["squat", "d5_rdl", "d6_lowtrap", "d5_seatedcurl", "d2_scalf", "d2_calflp", "d5_backext", "d2_qlext"],
+      6: ["d6_wpull", "d6_cablat", "d6_saohext", "d3_tbar", "d3_ezbarpd", "d6_dblatinc", "d6_bss", "d5_dbextrot"]
     };
 
     const WENDLER_PHASES = ['5s', '3s', '531', 'deload'];
@@ -149,17 +138,17 @@
     };
 
     const dayNames = {
-      1: 'Chest + Bi + Rear Delt + Abs',
-      2: 'Legs',
-      3: 'Back + Tri + Side Delts',
-      4: 'Chest + Bi + Rear Delt + Abs',
-      5: 'Legs',
-      6: 'Back + Tri + Side Delts'
+      1: 'Bench + Dips + Bi + Rear Delt + Abs',
+      2: 'Deadlift + Ham Curl + Shrugs',
+      3: 'Chins + OHP + Side Delts + Tri',
+      4: 'Incline + Rear Delt + Bi + Abs',
+      5: 'Squat + Low Traps + Ham Curl',
+      6: 'Pull-ups + Side Delts + Tri + BSS'
     };
     const dayShort = { 1: 'Push A', 2: 'Legs A', 3: 'Pull A', 4: 'Push B', 5: 'Legs B', 6: 'Pull B' };
 
     const defaultSettings = {
-      wendlerTM: { bench: 170, squat: 285, deadlift: 380, ohp: 120 },
+      wendlerTM: { bench: 170, squat: 230, deadlift: 335, ohp: 95 }, // ~85% of demonstrated e1RM (reset 2026-07-27)
       calisthenics: {
         dips:    { top: 80, backoffPct: 72.5 },
         pullups: { top: 80, backoffPct: 72.5 },
@@ -169,9 +158,7 @@
       cyclesSinceDeload: 0,  // completed 5s→3s→531 cycles since last deload
       schedule: DEFAULT_SCHEDULE,
       registry: DEFAULT_REGISTRY,
-      mobilityRegistry: DEFAULT_MOBILITY_REGISTRY,
-      mobilitySchedule: DEFAULT_MOBILITY_SCHEDULE,
-      bodyweight: 155,
+      bodyweight: 149,
       _updated: 0
     };
 
@@ -224,15 +211,7 @@
       if (!s.wendlerPhase) s.wendlerPhase = '5s';
       if (s.cyclesSinceDeload == null) s.cyclesSinceDeload = 0;
       if (!s.registry) s.registry = DEFAULT_REGISTRY;
-      if (!s.mobilityRegistry) s.mobilityRegistry = DEFAULT_MOBILITY_REGISTRY;
-      if (!s.mobilitySchedule) {
-        s.mobilitySchedule = DEFAULT_MOBILITY_SCHEDULE;
-      } else {
-        for (const day in s.mobilitySchedule) {
-          if (!s.mobilitySchedule[day].pre) s.mobilitySchedule[day].pre = [];
-          if (!s.mobilitySchedule[day].post) s.mobilitySchedule[day].post = [];
-        }
-      }
+      // mobilityRegistry/mobilitySchedule keys are tolerated as inert data (module removed 2026-07-27, redo pending)
       return s;
     };
 
@@ -375,7 +354,6 @@
       const [editingExercise, setEditingExercise] = useState(null);
       const [addingToDay, setAddingToDay] = useState(null);
       const [showPhaseSelector, setShowPhaseSelector] = useState(false);
-      const [mobExpanded, setMobExpanded] = useState({});
 
       // Drag-and-drop state for schedule editor
       const [dragState, setDragState] = useState(null); // { exId, fromDay, fromIdx }
@@ -406,16 +384,13 @@
       const [bodyweightLogs, setBodyweightLogs] = useState(() => {
         try { return JSON.parse(localStorage.getItem('v5-bw')) || []; } catch(e) { return []; }
       });
-      const [mobilityLogs, setMobilityLogs] = useState(() => {
-        try { return JSON.parse(localStorage.getItem('v5-mobility')) || {}; } catch(e) { return {}; }
-      });
       const [newWeight, setNewWeight] = useState('');
       const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
 
       // Ref for cloud sync
       const dirtyRef = useRef(false); // true when local changes haven't been pushed yet
-      const stateRef = useRef({ workoutLogs, settings, completedSessions, bodyweightLogs, mobilityLogs });
-      useEffect(() => { stateRef.current = { workoutLogs, settings, completedSessions, bodyweightLogs, mobilityLogs }; }, [workoutLogs, settings, completedSessions, bodyweightLogs, mobilityLogs]);
+      const stateRef = useRef({ workoutLogs, settings, completedSessions, bodyweightLogs });
+      useEffect(() => { stateRef.current = { workoutLogs, settings, completedSessions, bodyweightLogs }; }, [workoutLogs, settings, completedSessions, bodyweightLogs]);
 
       // Cloud Logic
       useEffect(() => {
@@ -431,13 +406,9 @@
                 setSettings(merged); localStorage.setItem('v5-settings', JSON.stringify(merged));
               }
               if (data.logs) {
-                const { _mob, ...cloudLogs } = data.logs;
+                const { _mob, ...cloudLogs } = data.logs; // _mob = legacy mobility logs, ignored (module removed)
                 const merged = mergeLogs(workoutLogs, cloudLogs);
                 setWorkoutLogs(merged); localStorage.setItem('v5-logs', JSON.stringify(merged));
-                if (_mob) {
-                  const mergedMob = { ..._mob, ...mobilityLogs };
-                  setMobilityLogs(mergedMob); localStorage.setItem('v5-mobility', JSON.stringify(mergedMob));
-                }
               }
               if (data.completed) {
                 const merged = { ...completedSessions, ...data.completed };
@@ -460,7 +431,7 @@
         if (!supabaseRef.current || !userId) return;
         const s = stateRef.current;
         try {
-          await supabaseRef.current.upsertData(userId, { settings: s.settings, logs: { ...s.workoutLogs, _mob: s.mobilityLogs }, completed: s.completedSessions, bw: s.bodyweightLogs });
+          await supabaseRef.current.upsertData(userId, { settings: s.settings, logs: s.workoutLogs, completed: s.completedSessions, bw: s.bodyweightLogs });
           dirtyRef.current = false;
           setSaveStatus('Saved ✔'); setTimeout(() => setSaveStatus(''), 2000);
         } catch (e) { console.error("Cloud save error:", e); setSaveStatus('Save Error ❌'); setTimeout(() => setSaveStatus(''), 3000); }
@@ -473,12 +444,11 @@
         try {
           const data = await supabaseRef.current.getData(userId);
           if (!data) throw new Error("No data found in cloud");
-          ['v5-settings','v5-logs','v5-completed','v5-bw','v5-mobility'].forEach(k => localStorage.removeItem(k));
+          ['v5-settings','v5-logs','v5-completed','v5-bw'].forEach(k => localStorage.removeItem(k));
           if(data.settings) localStorage.setItem('v5-settings', JSON.stringify(ensureStructure(data.settings)));
           if(data.logs) {
-            const { _mob, ...cloudLogs } = data.logs;
+            const { _mob, ...cloudLogs } = data.logs; // legacy mobility logs stay untouched in localStorage
             localStorage.setItem('v5-logs', JSON.stringify(cloudLogs));
-            if (_mob) localStorage.setItem('v5-mobility', JSON.stringify(_mob));
           }
           if(data.completed) localStorage.setItem('v5-completed', JSON.stringify(data.completed));
           if(data.bodyweight) localStorage.setItem('v5-bw', JSON.stringify(data.bodyweight));
@@ -521,35 +491,6 @@
         setBodyweightLogs(l); localStorage.setItem('v5-bw', JSON.stringify(l)); pushToCloud();
       };
 
-      // Mobility log helpers
-      const getMobilityLog = (w, d) => mobilityLogs[`${w}-${d}`] || {};
-      const toggleMobilityCheck = (w, d, slot, exId) => {
-        const k = `${w}-${d}`;
-        const ml = { ...mobilityLogs };
-        if (!ml[k]) ml[k] = {};
-        if (!ml[k][slot]) ml[k][slot] = {};
-        ml[k][slot][exId] = !ml[k][slot][exId];
-        dirtyRef.current = true;
-        setMobilityLogs(ml);
-        localStorage.setItem('v5-mobility', JSON.stringify(ml));
-        if (saveTimeout.current) clearTimeout(saveTimeout.current);
-        saveTimeout.current = setTimeout(() => pushToCloud(), 2000);
-      };
-      const saveMobilityNote = (w, d, slot, exId, note) => {
-        const k = `${w}-${d}`;
-        const ml = { ...mobilityLogs };
-        if (!ml[k]) ml[k] = {};
-        if (!ml[k]._notes) ml[k]._notes = {};
-        if (!ml[k]._notes[slot]) ml[k]._notes[slot] = {};
-        ml[k]._notes[slot][exId] = note;
-        dirtyRef.current = true;
-        setMobilityLogs(ml);
-        localStorage.setItem('v5-mobility', JSON.stringify(ml));
-        if (saveTimeout.current) clearTimeout(saveTimeout.current);
-        saveTimeout.current = setTimeout(() => pushToCloud(), 2000);
-      };
-      const getMobilityNote = (w, d, slot, exId) => mobilityLogs[`${w}-${d}`]?._notes?.[slot]?.[exId] || '';
-
       // Phase management
       const setPhase = (phase) => {
         saveSettingsDebounced({ ...settings, wendlerPhase: phase });
@@ -560,7 +501,7 @@
         const cur = settings.wendlerPhase;
         let cycles = settings.cyclesSinceDeload || 0;
         let np;
-        if (cur === '531') { cycles += 1; np = cycles >= 3 ? 'deload' : '5s'; }
+        if (cur === '531') { cycles += 1; np = cycles >= 2 ? 'deload' : '5s'; } // deload every 2nd cycle (wks 7/14/21) — tendon history, do not override
         else if (cur === 'deload') { cycles = 0; np = '5s'; }
         else np = nextPhase(cur);
         saveSettingsDebounced({ ...settings, wendlerPhase: np, cyclesSinceDeload: cycles });
@@ -783,52 +724,6 @@
         };
       }, [dragState, handleDragMove, handleDragEnd]);
 
-      const addNewExercise = (id, name, sets, reps, notes) => {
-        const newRegistry = { ...settings.registry };
-        newRegistry[id] = { n: name, s: parseInt(sets) || 3, r: reps || '8-12', nt: notes || '' };
-        saveSettingsDebounced({ ...settings, registry: newRegistry });
-        return id;
-      };
-
-      // Mobility schedule management
-      const [addingMobility, setAddingMobility] = useState(null); // { day, slot }
-      const [editingMobility, setEditingMobility] = useState(null); // exId
-
-      const addMobilityToSchedule = (day, slot, exId) => {
-        const ms = JSON.parse(JSON.stringify(settings.mobilitySchedule));
-        if (!ms[day]) ms[day] = { pre: [], post: [] };
-        if (!ms[day][slot]) ms[day][slot] = [];
-        if (ms[day][slot].includes(exId)) return;
-        ms[day][slot].push(exId);
-        saveSettingsDebounced({ ...settings, mobilitySchedule: ms });
-      };
-
-      const removeMobilityFromSchedule = (day, slot, exId) => {
-        const ms = JSON.parse(JSON.stringify(settings.mobilitySchedule));
-        if (!ms[day]?.[slot]) return;
-        ms[day][slot] = ms[day][slot].filter(id => id !== exId);
-        saveSettingsDebounced({ ...settings, mobilitySchedule: ms });
-      };
-
-      const moveMobilityInSchedule = (day, slot, exId, direction) => {
-        const ms = JSON.parse(JSON.stringify(settings.mobilitySchedule));
-        const arr = ms[day]?.[slot];
-        if (!arr) return;
-        const idx = arr.indexOf(exId);
-        if (idx < 0) return;
-        const target = idx + direction;
-        if (target < 0 || target >= arr.length) return;
-        [arr[idx], arr[target]] = [arr[target], arr[idx]];
-        saveSettingsDebounced({ ...settings, mobilitySchedule: ms });
-      };
-
-      const addNewMobilityExercise = (id, name, duration, notes) => {
-        const newReg = { ...settings.mobilityRegistry };
-        newReg[id] = { n: name, d: duration || '', nt: notes || '' };
-        saveSettingsDebounced({ ...settings, mobilityRegistry: newReg });
-        return id;
-      };
-
       // CSV Export
       const exportToCSV = () => {
         const rows = [['Week','Day','Date','Duration','Exercise ID','Exercise Name','Set 1','Set 2','Set 3','Set 4','Set 5','Notes'].join(',')];
@@ -987,8 +882,14 @@
             const id = newId.trim().toLowerCase().replace(/\s+/g, '_');
             if (!id || !newName.trim()) return alert("ID and Name required");
             if (settings.registry[id]) return alert("ID already exists");
-            addNewExercise(id, newName.trim(), newSets, newReps, newNotes);
-            addToSchedule(day, id);
+            // ATOMIC: registry + schedule in ONE save. Two sequential saves both spread the
+            // same stale `settings` snapshot, so the second (schedule) clobbered the first
+            // (registry) — scheduled id with no registry entry = the invisible "ghost exercise" bug.
+            const newRegistry = { ...settings.registry, [id]: { n: newName.trim(), s: parseInt(newSets) || 3, r: newReps || '8-12', nt: newNotes || '' } };
+            const newSchedule = { ...settings.schedule };
+            if (!newSchedule[day]) newSchedule[day] = [];
+            if (!newSchedule[day].includes(id)) newSchedule[day] = [...newSchedule[day], id];
+            saveSettingsDebounced({ ...settings, registry: newRegistry, schedule: newSchedule });
           }
           onClose();
         };
@@ -1074,207 +975,6 @@
 
       // ---- TAB RENDERERS ----
 
-      // Mobility Section (collapsible, for Lift tab)
-      // Mobility note input - saves on blur to avoid remount focus loss
-      const MobilityNoteInput = React.memo(({ initialValue, onSave }) => {
-        const [val, setVal] = useState(initialValue);
-        const isEditingRef = useRef(false);
-        useEffect(() => { if (!isEditingRef.current) setVal(initialValue); }, [initialValue]);
-        return (
-          <input type="text" placeholder="Notes..." value={val}
-            onFocus={() => { isEditingRef.current = true; }}
-            onChange={e => setVal(e.target.value)}
-            onBlur={() => { isEditingRef.current = false; onSave(val); }}
-            className="w-full px-2 py-1 text-xs border border-stone-100 rounded bg-transparent focus:bg-white focus:border-stone-300 text-stone-500 placeholder-stone-300 transition-colors" />
-        );
-      });
-
-      const MobilitySection = ({ slot, label, week, day, isCompleted }) => {
-        const stateKey = `${day}-${slot}`;
-        const expanded = !!mobExpanded[stateKey];
-        const toggleExpanded = () => setMobExpanded(prev => ({ ...prev, [stateKey]: !prev[stateKey] }));
-        const mobSchedule = settings.mobilitySchedule?.[day]?.[slot] || [];
-        const mobLog = getMobilityLog(week, day);
-        
-        if (mobSchedule.length === 0) return null;
-
-        const completedCount = mobSchedule.filter(id => mobLog[slot]?.[id]).length;
-        const allDone = completedCount === mobSchedule.length;
-        const borderColor = slot === 'pre' ? 'border-l-cyan-400' : 'border-l-violet-400';
-        const accentBg = slot === 'pre' ? 'bg-cyan-50' : 'bg-violet-50';
-        const accentText = slot === 'pre' ? 'text-cyan-700' : 'text-violet-700';
-        const accentBadge = slot === 'pre' ? 'bg-cyan-100 text-cyan-700' : 'bg-violet-100 text-violet-700';
-
-        return (
-          <div className={`bg-white rounded-xl shadow-sm border border-stone-200 border-l-4 ${borderColor} overflow-hidden transition-opacity ${isCompleted ? 'opacity-75' : ''}`}>
-            <div onClick={toggleExpanded}
-              className={`w-full px-4 py-3 flex justify-between items-center cursor-pointer select-none ${expanded ? accentBg : 'hover:bg-stone-50'} transition-colors`}>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-bold uppercase tracking-wide ${accentText}`}>{label}</span>
-                {allDone && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">Done</span>}
-                {!allDone && completedCount > 0 && <span className="text-[9px] font-bold text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">{completedCount}/{mobSchedule.length}</span>}
-              </div>
-              <span className={`text-xs text-stone-400 transition-transform ${expanded ? 'rotate-180' : ''}`}>▼</span>
-            </div>
-            {expanded && (
-              <div className="px-4 pb-3 space-y-2" onClick={e => e.stopPropagation()}>
-                {mobSchedule.map(id => {
-                  const ex = settings.mobilityRegistry?.[id];
-                  if (!ex) return null;
-                  const checked = !!mobLog[slot]?.[id];
-                  const note = getMobilityNote(week, day, slot, id);
-                  return (
-                    <div key={id} className={`rounded-lg p-3 transition-colors ${checked ? 'bg-emerald-50/50' : 'bg-stone-50'}`}>
-                      <div className="flex items-start gap-3">
-                        <button onClick={() => toggleMobilityCheck(week, day, slot, id)}
-                          className={`w-6 h-6 mt-0.5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-stone-300 hover:border-stone-400'}`}>
-                          {checked && <span className="text-xs font-bold">✓</span>}
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-baseline gap-2">
-                            <span className={`text-sm font-medium ${checked ? 'text-stone-400 line-through' : 'text-stone-700'}`}>{ex.n}</span>
-                            {ex.d && <span className="text-[10px] font-bold text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded flex-shrink-0">{ex.d}</span>}
-                          </div>
-                          {ex.nt && <p className="text-[10px] text-stone-400 mt-0.5 leading-snug">{ex.nt}</p>}
-                          <div className="mt-1.5">
-                            <MobilityNoteInput initialValue={note} onSave={v => saveMobilityNote(week, day, slot, id, v)} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      };
-
-      // Mobility Editor Modal
-      const MobilityEditorModal = ({ exId, onClose }) => {
-        const ex = settings.mobilityRegistry?.[exId] || {};
-        const [name, setName] = useState(ex.n || '');
-        const [duration, setDuration] = useState(ex.d || '');
-        const [notes, setNotes] = useState(ex.nt || '');
-
-        const handleSave = () => {
-          const newReg = { ...settings.mobilityRegistry };
-          newReg[exId] = { ...newReg[exId], n: name, d: duration, nt: notes };
-          saveSettingsDebounced({ ...settings, mobilityRegistry: newReg });
-          onClose();
-        };
-
-        return (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5" onClick={e => e.stopPropagation()}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-stone-800 text-lg">Edit Mobility Exercise</h3>
-                <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-xl">×</button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Exercise ID</label>
-                  <div className="px-3 py-2 bg-stone-100 rounded-lg text-sm text-stone-500 font-mono">{exId}</div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Name</label>
-                  <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Duration / Dose</label>
-                  <input type="text" value={duration} onChange={e => setDuration(e.target.value)} placeholder="2×30s, 3 min, etc." className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Cue / Notes</label>
-                  <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Setup and execution cues" className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm" />
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button onClick={onClose} className="flex-1 py-2.5 text-sm font-bold text-stone-500 bg-stone-100 rounded-lg">Cancel</button>
-                <button onClick={handleSave} className="flex-1 py-2.5 text-sm font-bold text-white bg-stone-800 rounded-lg">Save</button>
-              </div>
-            </div>
-          </div>
-        );
-      };
-
-      // Add Mobility Exercise Modal
-      const AddMobilityModal = ({ day, slot, onClose }) => {
-        const [mode, setMode] = useState('existing');
-        const [selectedId, setSelectedId] = useState('');
-        const [newId, setNewId] = useState('');
-        const [newName, setNewName] = useState('');
-        const [newDuration, setNewDuration] = useState('');
-        const [newNotes, setNewNotes] = useState('');
-
-        const currentIds = settings.mobilitySchedule?.[day]?.[slot] || [];
-        const existingIds = Object.keys(settings.mobilityRegistry || {}).filter(id => !currentIds.includes(id)).sort((a,b) => (settings.mobilityRegistry[a]?.n || '').localeCompare(settings.mobilityRegistry[b]?.n || ''));
-
-        const handleAdd = () => {
-          if (mode === 'existing') {
-            if (!selectedId) return;
-            addMobilityToSchedule(day, slot, selectedId);
-          } else {
-            const id = newId.trim().toLowerCase().replace(/\s+/g, '_');
-            if (!id || !newName.trim()) return alert("ID and Name required");
-            if (settings.mobilityRegistry?.[id]) return alert("ID already exists");
-            addNewMobilityExercise(id, newName.trim(), newDuration, newNotes);
-            addMobilityToSchedule(day, slot, id);
-          }
-          onClose();
-        };
-
-        return (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-stone-800 text-lg">Add to D{day} {slot === 'pre' ? 'Pre' : 'Post'}-Workout</h3>
-                <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-xl">×</button>
-              </div>
-              <div className="flex gap-2 mb-4">
-                <button onClick={() => setMode('existing')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${mode === 'existing' ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-500'}`}>From Registry</button>
-                <button onClick={() => setMode('new')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${mode === 'new' ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-500'}`}>Create New</button>
-              </div>
-              {mode === 'existing' ? (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {existingIds.length === 0 && <p className="text-xs text-stone-400 text-center py-4">All mobility exercises already assigned</p>}
-                  {existingIds.map(id => (
-                    <button key={id} onClick={() => setSelectedId(id)}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors ${selectedId === id ? 'bg-stone-800 text-white' : 'bg-stone-50 text-stone-700 hover:bg-stone-100'}`}>
-                      {settings.mobilityRegistry[id]?.n || id}
-                      {settings.mobilityRegistry[id]?.d && <span className="text-xs opacity-60 ml-2">{settings.mobilityRegistry[id].d}</span>}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Exercise ID (unique)</label>
-                    <input type="text" value={newId} onChange={e => setNewId(e.target.value)} placeholder="mob_newexercise" className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm font-mono" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Name</label>
-                    <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Banded Hip Flexor Stretch" className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Duration / Dose</label>
-                    <input type="text" value={newDuration} onChange={e => setNewDuration(e.target.value)} placeholder="2×30s" className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wide mb-1 block">Cue / Notes</label>
-                    <input type="text" value={newNotes} onChange={e => setNewNotes(e.target.value)} placeholder="Setup and execution cues" className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm" />
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-3 mt-6">
-                <button onClick={onClose} className="flex-1 py-2.5 text-sm font-bold text-stone-500 bg-stone-100 rounded-lg">Cancel</button>
-                <button onClick={handleAdd} className="flex-1 py-2.5 text-sm font-bold text-white bg-stone-800 rounded-lg">Add</button>
-              </div>
-            </div>
-          </div>
-        );
-      };
-
       // SETUP TAB
       const renderSetupTab = () => {
         const isConnected = supabaseRef.current !== null;
@@ -1282,8 +982,6 @@
           <div className="p-4 space-y-6 max-w-md mx-auto">
             {editingExercise && <ExerciseEditorModal exId={editingExercise} onClose={() => setEditingExercise(null)} />}
             {addingToDay && <AddExerciseModal day={addingToDay} onClose={() => setAddingToDay(null)} />}
-            {editingMobility && <MobilityEditorModal exId={editingMobility} onClose={() => setEditingMobility(null)} />}
-            {addingMobility && <AddMobilityModal day={addingMobility.day} slot={addingMobility.slot} onClose={() => setAddingMobility(null)} />}
 
             {/* Cloud Sync */}
             <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
@@ -1319,7 +1017,7 @@
               </div>
               <button onClick={() => {
                 if (!confirm("Reset schedule & exercise registry to code defaults? Your workout logs and TMs will NOT be affected.")) return;
-                const updated = { ...settings, schedule: JSON.parse(JSON.stringify(DEFAULT_SCHEDULE)), registry: JSON.parse(JSON.stringify(DEFAULT_REGISTRY)), mobilityRegistry: JSON.parse(JSON.stringify(DEFAULT_MOBILITY_REGISTRY)), mobilitySchedule: JSON.parse(JSON.stringify(DEFAULT_MOBILITY_SCHEDULE)), _updated: Date.now() };
+                const updated = { ...settings, schedule: JSON.parse(JSON.stringify(DEFAULT_SCHEDULE)), registry: JSON.parse(JSON.stringify(DEFAULT_REGISTRY)), _updated: Date.now() };
                 setSettings(updated);
                 localStorage.setItem('v5-settings', JSON.stringify(updated));
                 if (supabaseRef.current && userId) {
@@ -1442,73 +1140,6 @@
               </div>
             </div>
 
-            {/* Mobility Schedule Editor */}
-            <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
-              <h2 className="font-bold text-stone-800 text-lg mb-2">Mobility Schedule</h2>
-              <p className="text-xs text-stone-500 mb-4">Assign mobility exercises to pre/post-workout slots per day. Tap name to edit.</p>
-              <div className="space-y-1">
-                {[1,2,3,4,5,6].map(day => {
-                  const preIds = settings.mobilitySchedule?.[day]?.pre || [];
-                  const postIds = settings.mobilitySchedule?.[day]?.post || [];
-                  return (
-                    <div key={day} className="mb-5">
-                      <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wide py-2">
-                        Day {day} — {dayShort[day]}
-                      </div>
-                      {/* Pre-workout */}
-                      <div className="ml-2 mb-2">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-[9px] font-bold text-cyan-600 uppercase tracking-wide">Pre-Workout</span>
-                          <button onClick={() => setAddingMobility({ day, slot: 'pre' })} className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded hover:bg-emerald-100">+ Add</button>
-                        </div>
-                        {preIds.length === 0 && <p className="text-[10px] text-stone-300 italic ml-1">None</p>}
-                        {preIds.map((exId, idx) => {
-                          const ex = settings.mobilityRegistry?.[exId];
-                          if (!ex) return null;
-                          return (
-                            <div key={exId} className="flex items-center gap-1 py-1">
-                              <div className="flex flex-col gap-0.5 mr-1">
-                                <button onClick={() => moveMobilityInSchedule(day, 'pre', exId, -1)} className="text-[10px] text-stone-300 hover:text-stone-600 leading-none" disabled={idx === 0}>▲</button>
-                                <button onClick={() => moveMobilityInSchedule(day, 'pre', exId, 1)} className="text-[10px] text-stone-300 hover:text-stone-600 leading-none" disabled={idx === preIds.length - 1}>▼</button>
-                              </div>
-                              <button onClick={() => setEditingMobility(exId)} className="flex-1 text-left text-xs text-stone-700 hover:text-stone-900 truncate">{ex.n}</button>
-                              <span className="text-[9px] text-stone-400 mr-2">{ex.d}</span>
-                              <button onClick={() => { if(confirm(`Remove ${ex.n}?`)) removeMobilityFromSchedule(day, 'pre', exId); }}
-                                className="text-stone-300 hover:text-rose-500 text-xs px-1">✕</button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {/* Post-workout */}
-                      <div className="ml-2">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-[9px] font-bold text-violet-600 uppercase tracking-wide">Post-Workout</span>
-                          <button onClick={() => setAddingMobility({ day, slot: 'post' })} className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded hover:bg-emerald-100">+ Add</button>
-                        </div>
-                        {postIds.length === 0 && <p className="text-[10px] text-stone-300 italic ml-1">None</p>}
-                        {postIds.map((exId, idx) => {
-                          const ex = settings.mobilityRegistry?.[exId];
-                          if (!ex) return null;
-                          return (
-                            <div key={exId} className="flex items-center gap-1 py-1">
-                              <div className="flex flex-col gap-0.5 mr-1">
-                                <button onClick={() => moveMobilityInSchedule(day, 'post', exId, -1)} className="text-[10px] text-stone-300 hover:text-stone-600 leading-none" disabled={idx === 0}>▲</button>
-                                <button onClick={() => moveMobilityInSchedule(day, 'post', exId, 1)} className="text-[10px] text-stone-300 hover:text-stone-600 leading-none" disabled={idx === postIds.length - 1}>▼</button>
-                              </div>
-                              <button onClick={() => setEditingMobility(exId)} className="flex-1 text-left text-xs text-stone-700 hover:text-stone-900 truncate">{ex.n}</button>
-                              <span className="text-[9px] text-stone-400 mr-2">{ex.d}</span>
-                              <button onClick={() => { if(confirm(`Remove ${ex.n}?`)) removeMobilityFromSchedule(day, 'post', exId); }}
-                                className="text-stone-300 hover:text-rose-500 text-xs px-1">✕</button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* Export */}
             <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-5">
               <h2 className="font-bold text-stone-800 mb-4 text-lg">Export & Backup</h2>
@@ -1517,12 +1148,38 @@
                   <span>📊</span> Export Logs to CSV
                 </button>
                 <button onClick={() => {
-                  const blob = new Blob([JSON.stringify({ settings, logs: workoutLogs, bw: bodyweightLogs, completed: completedSessions, mobility: mobilityLogs }, null, 2)], { type: 'application/json' });
-                  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `v5-backup-${new Date().toISOString().split('T')[0]}.json`;
+                  const blob = new Blob([JSON.stringify({ settings, logs: workoutLogs, bw: bodyweightLogs, completed: completedSessions }, null, 2)], { type: 'application/json' });
+                  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
                   document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 }} className="w-full bg-stone-100 text-stone-700 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-stone-200 transition-colors">
                   <span>💾</span> Download Full Backup (JSON)
                 </button>
+                <label className="w-full bg-stone-100 text-stone-700 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-stone-200 transition-colors cursor-pointer">
+                  <span>📥</span> Import Backup (JSON)
+                  <input type="file" accept=".json,application/json" className="hidden" onChange={e => {
+                    const file = e.target.files && e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      try {
+                        const data = JSON.parse(ev.target.result);
+                        if (!data.settings || !data.settings.registry || !data.settings.schedule) return alert("Not a valid backup: missing settings.registry / settings.schedule");
+                        if (!confirm("Import backup?\n\nThis REPLACES the program (settings). Logs / bodyweight / completed are only replaced if the file actually contains them.")) return;
+                        // Stamp import as newest so cloud merge doesn't resurrect the old program
+                        localStorage.setItem('v5-settings', JSON.stringify(ensureStructure({ ...data.settings, _updated: Date.now() })));
+                        const hasEntries = (o) => o && Object.keys(o).some(k => k !== '_updated');
+                        if (hasEntries(data.logs)) localStorage.setItem('v5-logs', JSON.stringify(data.logs));
+                        if (Array.isArray(data.bw) && data.bw.length) localStorage.setItem('v5-bw', JSON.stringify(data.bw));
+                        if (hasEntries(data.completed)) localStorage.setItem('v5-completed', JSON.stringify(data.completed));
+                        if (hasEntries(data.mobility)) localStorage.setItem('v5-mobility', JSON.stringify(data.mobility));
+                        alert("Imported. Reloading...");
+                        window.location.reload();
+                      } catch (err) { alert("Import failed: " + err.message); }
+                    };
+                    reader.readAsText(file);
+                    e.target.value = '';
+                  }} />
+                </label>
               </div>
             </div>
 
@@ -1546,9 +1203,9 @@
                   {PHASE_DISPLAY[phase]}
                 </button>
               </div>
-              <p className="text-xs text-stone-500">Phase auto-advances after each full week (6 sessions). Every 3rd completed cycle rolls into Deload automatically; tap to override.</p>
-              <p className={`text-xs mt-2 font-bold ${(settings.cyclesSinceDeload||0) >= 3 ? 'text-rose-600' : (settings.cyclesSinceDeload||0) === 2 ? 'text-amber-600' : 'text-stone-400'}`}>
-                {settings.cyclesSinceDeload || 0} cycle{(settings.cyclesSinceDeload||0) === 1 ? '' : 's'} since last deload{(settings.cyclesSinceDeload||0) >= 3 ? ' — deload now' : (settings.cyclesSinceDeload||0) === 2 ? ' — deload after this cycle' : ''}
+              <p className="text-xs text-stone-500">Phase auto-advances after each full week (6 sessions). Every 2nd completed cycle rolls into Deload automatically (wks 7/14/21). Do not override — the only deload in 17 weeks was the involuntary one.</p>
+              <p className={`text-xs mt-2 font-bold ${(settings.cyclesSinceDeload||0) >= 2 ? 'text-rose-600' : (settings.cyclesSinceDeload||0) === 1 ? 'text-amber-600' : 'text-stone-400'}`}>
+                {settings.cyclesSinceDeload || 0} cycle{(settings.cyclesSinceDeload||0) === 1 ? '' : 's'} since last deload{(settings.cyclesSinceDeload||0) >= 2 ? ' — deload now' : (settings.cyclesSinceDeload||0) === 1 ? ' — deload after this cycle' : ''}
               </p>
               
               <div className="flex gap-2 mt-4">
@@ -1665,9 +1322,6 @@
               </div>
             </div>
 
-            {/* Pre-Workout Mobility */}
-            <MobilitySection slot="pre" label="Pre-Workout Mobility" week={currentWeek} day={activeDay} isCompleted={isCompleted} />
-
             {/* Exercises */}
             <div className="space-y-4">
               {dayExIds.map(id => {
@@ -1679,7 +1333,7 @@
                 let tgt = '';
                 if (ex.w) {
                   tgt = pcts.map(s => `${calcWt(settings.wendlerTM[ex.wl], s.p)}×${s.r}`).join('  /  ');
-                  if (ex.fsl && phase !== 'deload') tgt += `  ·  FSL ${calcWt(settings.wendlerTM[ex.wl], pcts[0].p)}×5×5 paused`;
+                  if (ex.fsl && phase !== 'deload') tgt += `  ·  S4 back-off ${Math.round(calcWt(settings.wendlerTM[ex.wl], pcts[2].p) * 0.85 / 5) * 5}×AMRAP (RIR1-2, paused)`;
                 } else if (ex.c) {
                   const topVal = settings.calisthenics[ex.ct]?.top || 0;
                   const pctVal = settings.calisthenics[ex.ct]?.backoffPct || 75;
@@ -1720,9 +1374,6 @@
                 );
               })}
             </div>
-
-            {/* Post-Workout Mobility */}
-            <MobilitySection slot="post" label="Post-Workout Mobility" week={currentWeek} day={activeDay} isCompleted={isCompleted} />
 
             {/* Session Metadata */}
             <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-4">
@@ -1858,7 +1509,7 @@
           {/* Header */}
           <div className="bg-stone-900 text-stone-50 px-5 py-4 flex justify-between items-center shadow-md sticky top-0 z-40">
             <div>
-              <h1 className="text-base font-bold tracking-tight">Tracker V5.5</h1>
+              <h1 className="text-base font-bold tracking-tight">Tracker V7.1</h1>
               <p className="text-stone-500 text-[10px] font-medium tracking-wide uppercase">HYPERTROPHY + STRENGTH</p>
             </div>
             <div className="flex items-center gap-2">
